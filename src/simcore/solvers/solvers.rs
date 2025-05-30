@@ -1,15 +1,12 @@
-use crate::simcore::types::{Simulation, JointId, Joint, Constraint, 
-    FixedPositionConstraint, DistanceConstraint};
-use generational_arena::Arena;
+use crate::simcore::types::*; // Add Position
 
 use std::any::Any;
 
 impl Simulation {
-    // Step simulation forward by dt using a fixed number of solver iterations
     pub fn step(&mut self, dt: f32, iterations: usize) {
+        let iterations = iterations * 2;
         for _ in 0..iterations {
             self.solve_constraints();
-            // TODO: integrate velocities, forces, etc., if needed
         }
     }
 
@@ -25,8 +22,6 @@ impl Simulation {
         // Put constraints back
         self.constraints = constraints;
     }
-
-    // Safely get two distinct mutable joints
     pub fn get_two_joints_mut(
         &mut self,
         a: JointId,
@@ -43,7 +38,6 @@ impl Simulation {
     }
 }
 
-// Implement Constraint trait for FixedPositionConstraint
 impl Constraint for FixedPositionConstraint {
     fn apply(&self, sim: &mut Simulation) {
         if let Some(joint) = sim.joints.get_mut(self.joint_id) {
@@ -57,24 +51,22 @@ impl Constraint for FixedPositionConstraint {
             .unwrap_or(false)
     }
 
-
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-// Implement Constraint trait for DistanceConstraint
 impl Constraint for DistanceConstraint {
     fn apply(&self, sim: &mut Simulation) {
         if let Some((joint_a, joint_b)) = sim.get_two_joints_mut(self.joint_a, self.joint_b) {
-            let delta = joint_b.position - joint_a.position;
+            let delta = joint_b.position.sub(joint_a.position);
             let current_distance = delta.length();
             let error = current_distance - self.target_distance;
 
             if error.abs() > 1e-6 && current_distance > 0.0 {
-                let correction = (error * 0.5) * delta.normalize();
-                joint_a.position += correction;
-                joint_b.position -= correction;
+                let correction = delta.normalize().scale(error * 0.5);
+                joint_a.position = joint_a.position.add(correction);
+                joint_b.position = joint_b.position.sub(correction);
             }
         }
     }

@@ -1,11 +1,11 @@
 use generational_arena::{Arena as GenArena, Index};
-use glam::Vec2;
+use glam::{Vec2, Vec3}; // Add Vec3
 use std::any::Any;
 
 pub type JointId = Index;
 pub type LinkId = Index;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Simulation {
     pub joints: GenArena<Joint>,
     pub links: GenArena<Link>,
@@ -14,7 +14,7 @@ pub struct Simulation {
 
 #[derive(Debug, Clone)]
 pub struct Joint {
-    pub position: Vec2,
+    pub position: Position, // Changed from Vec2 to Position
     pub joint_type: JointType,
     pub connected_links: Vec<LinkId>,
 }
@@ -25,7 +25,6 @@ pub enum JointType {
     Revolute,
     Slider { axis: Vec2 },
 }
-
 #[derive(Debug, Clone)]
 pub struct Link {
     pub joints: Vec<JointId>,
@@ -33,7 +32,7 @@ pub struct Link {
 }
 
 
-pub trait Constraint: std::fmt::Debug + Any + 'static {
+pub trait Constraint: std::fmt::Debug + Any + Send + Sync + 'static {
     fn apply(&self, sim: &mut Simulation);
     fn is_satisfied(&self, sim: &Simulation) -> bool;
     fn as_any(&self) -> &dyn Any;
@@ -41,11 +40,54 @@ pub trait Constraint: std::fmt::Debug + Any + 'static {
 
 }
 
+// Add Position enum
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Position {
+    Vec2(Vec2),
+    Vec3(Vec3),
+}
+
+// Math helpers for Position
+impl Position {
+    pub fn as_vec3(&self) -> Vec3 {
+        match *self {
+            Position::Vec2(v) => v.extend(0.0),
+            Position::Vec3(v) => v,
+        }
+    }
+    pub fn as_vec2(&self) -> Vec2 {
+        match *self {
+            Position::Vec2(v) => v,
+            Position::Vec3(v) => v.truncate(),
+        }
+    }
+    pub fn add(self, rhs: Position) -> Position {
+        Position::Vec3(self.as_vec3() + rhs.as_vec3())
+    }
+    pub fn sub(self, rhs: Position) -> Position {
+        Position::Vec3(self.as_vec3() - rhs.as_vec3())
+    }
+    pub fn scale(self, s: f32) -> Position {
+        Position::Vec3(self.as_vec3() * s)
+    }
+    pub fn length(&self) -> f32 {
+        self.as_vec3().length()
+    }
+    pub fn normalize(&self) -> Position {
+        Position::Vec3(self.as_vec3().normalize())
+    }
+    pub fn distance(&self, other: Position) -> f32 {
+        (self.as_vec3() - other.as_vec3()).length()
+    }
+    pub fn abs_diff_eq(&self, other: Position, epsilon: f32) -> bool {
+        self.as_vec3().abs_diff_eq(other.as_vec3(), epsilon)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct FixedPositionConstraint {
     pub joint_id: JointId,
-    pub target_position: Vec2,
+    pub target_position: Position, // Changed from Vec2 to Position
 }
 
 #[derive(Debug, Clone)]
