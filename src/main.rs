@@ -5,29 +5,54 @@ use bevy::{
     render::camera::ScalingMode,
     prelude::*, render::view::RenderLayers,
 };
+
 pub mod simcore;
 use crate::simcore::types::*;
 use std::f32::consts::FRAC_PI_2;
 
+// Keybindings constants
+const PAN_UP_KEY: KeyCode = KeyCode::KeyW;
+const PAN_DOWN_KEY: KeyCode = KeyCode::KeyS;
+const PAN_LEFT_KEY: KeyCode = KeyCode::KeyA;
+const PAN_RIGHT_KEY: KeyCode = KeyCode::KeyD;
+const ZOOM_IN_KEY: KeyCode = KeyCode::Equal;
+const ZOOM_OUT_KEY: KeyCode = KeyCode::Minus;
+const ORBIT_LEFT_KEY: KeyCode = KeyCode::KeyQ;
+const ORBIT_RIGHT_KEY: KeyCode = KeyCode::KeyE;
+const MOUSE_PAN_BUTTON: MouseButton = MouseButton::Right;
+const MOUSE_ORBIT_BUTTON: MouseButton = MouseButton::Left;
+
+
+// Camera constants
+const DEFAULT_CAMERA_SENSITIVITY: Vec2 = Vec2::new(0.003, 0.002);
+const DEFAULT_CAMERA_POSITION: Vec3 = Vec3::new(5.0, 5.0, 5.0);
+const DEFAULT_ORBIT_RADIUS: f32 = 10.0;
+const DEFAULT_ORBIT_YAW: f32 = 0.0;
+const DEFAULT_ORBIT_PITCH: f32 = 0.3;
+const PAN_SPEED: f32 = 0.1;
+const ZOOM_SPEED: f32 = 0.05;
+const MIN_ZOOM: f32 = 0.1;
+const MAX_ZOOM: f32 = 10.0;
 
 /// Sim core wrapper types
 #[derive(Resource)]
-pub struct SimWrapper{
+pub struct SimWrapper {
     pub sim: Simulation,
 }
 
 #[derive(Component)]
-pub struct JointWrapper{
+pub struct JointWrapper {
     pub joint_id: JointId,
 }
+
 #[derive(Component)]
-pub struct LinkWrapper{
+pub struct LinkWrapper {
     pub link_id: LinkId,
 }
-///rendering shit idrk what it does im just tweaking until it gives me that gah damn fourbar
+
+/// Rendering components
 #[derive(Debug, Component)]
 struct WorldModelCamera;
-
 
 #[derive(Debug, Component)]
 struct Player;
@@ -37,35 +62,69 @@ struct CameraSensitivity(Vec2);
 
 impl Default for CameraSensitivity {
     fn default() -> Self {
-        Self(
-            // These factors are just arbitrary mouse sensitivity values.
-            // It's often nicer to have a faster horizontal sensitivity than vertical.
-            // We use a component for them so that we can make them user-configurable at runtime
-            // for accessibility reasons.
-            // It also allows you to inspect them in an editor if you `Reflect` the component.
-            Vec2::new(0.003, 0.002),
-        )
+        Self(DEFAULT_CAMERA_SENSITIVITY)
     }
 }
 
-
-fn main(){
-    App::new()
-    .add_plugins(DefaultPlugins) 
-    .add_systems(
-        Startup,
-        (
-            spawn_view_model,
-            spawn_world_model,
-            spawn_lights,
-            spawn_text,
-            setup_sim, // Add the new system here
-        ),
-    )
-    .add_systems(Update, (pan_ortho_camera, change_fov))
-    .run();
+#[derive(Component)]
+struct OrbitControl {
+    radius: f32,
+    yaw: f32,
+    pitch: f32,
 }
-// from bevy docs
+
+#[derive(Component, Default, PartialEq)]
+enum CameraMode {
+    #[default]
+    Perspective3D,
+    Orthographic3D,
+    Orthographic2D,
+}
+
+impl Default for OrbitControl {
+    fn default() -> Self {
+        Self {
+            radius: DEFAULT_ORBIT_RADIUS,
+            yaw: DEFAULT_ORBIT_YAW,
+            pitch: DEFAULT_ORBIT_PITCH,
+        }
+    }
+}
+#[derive(Component, Debug, Default)]
+struct PanOffset(Vec3);
+
+#[derive(Resource, Default)]
+struct CameraModeIndicator(String);
+
+#[derive(Component)]
+struct CameraModeText;
+
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(CameraModeIndicator::default())
+        .add_systems(
+            Startup,
+            (
+                spawn_view_model,
+                spawn_world_model,
+                spawn_lights,
+                spawn_text,
+                setup_sim,
+            ),
+        )
+        .add_systems(Update, pan_ortho_camera)
+        .add_systems(Update, zoom_ortho_camera)
+        .add_systems(Update, orbit_ortho_camera)
+        .add_systems(Update, pan_perspective_camera)
+        .add_systems(Update, zoom_perspective_camera)
+        .add_systems(Update, orbit_perspective_camera)
+        .add_systems(Update, toggle_camera_mode)
+        .add_systems(Update, (update_camera_mode_indicator,update_camera_mode_text))
+        .run();
+}
+
 /// Used implicitly by all entities without a `RenderLayers` component.
 /// Our world model camera and all objects other than the player are on this layer.
 /// The light source belongs to both layers.
@@ -74,15 +133,7 @@ const DEFAULT_RENDER_LAYER: usize = 0;
 /// Used by the view model camera and the player's arm.
 /// The light source belongs to both layers.
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
-
-
-
-
-
-
-fn spawn_view_model(
-    mut commands: Commands,
-) {
+fn spawn_view_model(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
@@ -91,11 +142,16 @@ fn spawn_view_model(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(DEFAULT_CAMERA_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
         Player,
         CameraSensitivity::default(),
+        OrbitControl::default(),
+        PanOffset::default(),
+        CameraMode::default(),
     ));
 }
+
+
 fn spawn_world_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -103,32 +159,26 @@ fn spawn_world_model(
 ) {
     let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
     let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
-    // i cant spell cynlider
-    let tallextrudedcircle = meshes.add(Cylinder::new(0.5, 1.0).mesh().resolution(50));
+    let cylinder = meshes.add(Cylinder::new(0.5, 1.0).mesh().resolution(50));
 
     let material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         ..Default::default()
     });
-    // The world model camera will render the floor and the cubes spawned in this system.
-    // Assigning no `RenderLayers` component defaults to layer 0.
 
     commands.spawn((Mesh3d(floor), MeshMaterial3d(material.clone())));
-
     commands.spawn((
         Mesh3d(cube.clone()),
         MeshMaterial3d(material.clone()),
         Transform::from_xyz(0.0, 0.25, -3.0),
     ));
-
     commands.spawn((
         Mesh3d(cube),
         MeshMaterial3d(material.clone()),
         Transform::from_xyz(0.75, 1.75, 0.0),
     ));
-    
     commands.spawn((
-        Mesh3d(tallextrudedcircle),
+        Mesh3d(cylinder),
         MeshMaterial3d(material),
         Transform::from_xyz(1.0, 1.75, 0.0),
     ));
@@ -142,127 +192,358 @@ fn spawn_lights(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(-2.0, 4.0, -0.75),
-        // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        })
-        .with_child(Text::new(concat!(
+        },
+        Name::new("Instructions"),
+    ))
+    .with_children(|parent| {
+        parent.spawn(Text::new(concat!(
             "Move the camera with your mouse.\n",
-            "Press arrow up to decrease the FOV of the world model.\n",
-            "Press arrow down to increase the FOV of the world model."
+            "Right click + drag to pan\n",
+            "Left click + drag to orbit\n",
+            "WASD to pan with keyboard\n",
+            "+/- to zoom\n",
+            "Q/E to orbit with keyboard\n",
+            "Space to toggle camera mode\n",
         )));
+    });
+
+    commands
+    .spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
+            ..default()
+        },
+        Name::new("CameraModeIndicator"),
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            Text::new("{CameraModeIndicator}"),
+            CameraModeText,  
+        ));
+    });
+
 }
 
-fn pan_ortho_camera(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &CameraSensitivity), With<Player>>,
+
+fn update_camera_mode_indicator(
+    camera_mode_query: Query<&CameraMode>,
+    mut camera_mode_indicator: ResMut<CameraModeIndicator>,
 ) {
-    let (mut transform, sensitivity) = match query.get_single_mut() {
-        Ok(result) => result,
-        Err(_) => return, // No camera found
+    if let Ok(camera_mode) = camera_mode_query.single() {
+        camera_mode_indicator.0 = match camera_mode {
+            CameraMode::Perspective3D => "Camera Mode: Perspective 3D".to_string(),
+            CameraMode::Orthographic3D => "Camera Mode: Orthographic 3D".to_string(),
+            CameraMode::Orthographic2D => "Camera Mode: Orthographic 2D".to_string(),
+        };
+    }
+}
+fn update_camera_mode_text(
+    camera_mode_indicator: Res<CameraModeIndicator>,
+    mut query: Query<&mut Text, With<CameraModeText>>,
+) {
+    for mut text in query.iter_mut() {
+        *text = Text::new(camera_mode_indicator.0.clone());
+    }
+}
+
+
+fn pan_ortho_camera(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+    mut query: Query<(
+        &mut PanOffset,
+        &Transform,
+        &CameraSensitivity,
+        &CameraMode,
+    ), With<Player>>,
+) {
+    let (mut pan_offset, transform, sensitivity, camera_mode) = match query.single_mut() {
+        Ok(values) => values,
+        Err(_) => return,
     };
 
-    // Handle mouse input for panning
-    if mouse_buttons.pressed(MouseButton::Right) {
-        let delta = accumulated_mouse_motion.delta;
-
-        if delta != Vec2::ZERO {
-            // Move in the camera's right and up directions
-            let right = transform.rotation * Vec3::X;
-            let up = transform.rotation * Vec3::Y;
-            transform.translation -=
-                (right * delta.x * sensitivity.x + up * delta.y * sensitivity.y) * 100.0;
-        }
-    }
-
-    // Handle keyboard input for panning
+    // Keyboard panning
     let mut movement = Vec3::ZERO;
-    if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
-        movement += Vec3::Y; // Move up
+    if keys.pressed(PAN_UP_KEY) {
+        movement += Vec3::new(transform.forward().x, 0.0, transform.forward().z);
     }
-    if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
-        movement -= Vec3::Y; // Move down
+    if keys.pressed(PAN_DOWN_KEY) {
+        movement -= Vec3::new(transform.forward().x, 0.0, transform.forward().z);
     }
-    if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
-        movement -= Vec3::X; // Move left
+    if keys.pressed(PAN_RIGHT_KEY) {
+        movement += Vec3::new(transform.right().x, 0.0, transform.right().z);
     }
-    if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight) {
-        movement += Vec3::X; // Move right
+    if keys.pressed(PAN_LEFT_KEY) {
+        movement -= Vec3::new(transform.right().x, 0.0, transform.right().z);
     }
 
     if movement != Vec3::ZERO {
-        transform.translation += movement * 0.1; // Adjust speed as needed
+        let delta = movement.normalize_or_zero() * PAN_SPEED;
+        pan_offset.0 += Vec3::new(delta.x, 0.0, delta.z);
+    }
+
+    // Mouse panning
+    if mouse_buttons.pressed(MOUSE_PAN_BUTTON) {
+        let total_delta = mouse_motion.delta;
+        match camera_mode {
+            CameraMode::Orthographic2D => {
+                // Simple 2D panning (XZ plane)
+                pan_offset.0 += Vec3::new(-total_delta.x, 0.0, total_delta.y) * sensitivity.x;
+            }
+            CameraMode::Perspective3D | CameraMode::Orthographic3D => {
+                // 3D panning - use camera relative directions
+                let right = transform.right();
+                let forward = transform.forward();
+                pan_offset.0 += (right * -total_delta.x + forward * total_delta.y) * sensitivity.x;
+            }
+        }
     }
 }
-
-/*
-fn move_player(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    player: Single<(&mut Transform, &CameraSensitivity), With<Player>>,
+fn pan_perspective_camera(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+    mut query: Query<(
+        &mut PanOffset,
+        &Transform,
+        &CameraSensitivity,
+        &CameraMode,
+    ), With<Player>>,
 ) {
-    let (mut transform, camera_sensitivity) = player.into_inner();
-
-    let delta = accumulated_mouse_motion.delta;
-
-    if delta != Vec2::ZERO {
-        // Note that we are not multiplying by delta_time here.
-        // The reason is that for mouse movement, we already get the full movement that happened since the last frame.
-        // This means that if we multiply by delta_time, we will get a smaller rotation than intended by the user.
-        // This situation is reversed when reading e.g. analog input from a gamepad however, where the same rules
-        // as for keyboard input apply. Such an input should be multiplied by delta_time to get the intended rotation
-        // independent of the framerate.
-        let delta_yaw = -delta.x * camera_sensitivity.x;
-        let delta_pitch = -delta.y * camera_sensitivity.y;
-
-        let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
-        let yaw = yaw + delta_yaw;
-
-        // If the pitch was ±¹⁄₂ π, the camera would look straight up or down.
-        // When the user wants to move the camera back to the horizon, which way should the camera face?
-        // The camera has no way of knowing what direction was "forward" before landing in that extreme position,
-        // so the direction picked will for all intents and purposes be arbitrary.
-        // Another issue is that for mathematical reasons, the yaw will effectively be flipped when the pitch is at the extremes.
-        // To not run into these issues, we clamp the pitch to a safe range.
-        const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
-        let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
-
-        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-    }
-}
-*/
-fn change_fov(
-    input: Res<ButtonInput<KeyCode>>,
-    mut world_model_projection: Single<&mut Projection, With<WorldModelCamera>>,
-) {
-    let Projection::Perspective(perspective) = world_model_projection.as_mut() else {
-        unreachable!(
-            "The `Projection` component was explicitly built with `Projection::Perspective`"
-        );
+    let (mut pan_offset, transform, sensitivity, camera_mode) = match query.single_mut() {
+        Ok(values) => values,
+        Err(_) => return,
     };
 
-    if input.pressed(KeyCode::ArrowUp) {
-        perspective.fov -= 1.0_f32.to_radians();
-        perspective.fov = perspective.fov.max(20.0_f32.to_radians());
-    }
-    if input.pressed(KeyCode::ArrowDown) {
-        perspective.fov += 1.0_f32.to_radians();
-        perspective.fov = perspective.fov.min(160.0_f32.to_radians());
+    if *camera_mode != CameraMode::Orthographic2D {
+        let mut movement = Vec3::ZERO;
+        if keys.pressed(PAN_UP_KEY) {
+            movement += Vec3::new(transform.forward().x, transform.forward().y, transform.forward().z);
+        }
+        if keys.pressed(PAN_DOWN_KEY) {
+            movement -= Vec3::new(transform.forward().x, transform.forward().y, transform.forward().z);
+        }
+        if keys.pressed(PAN_RIGHT_KEY) {
+            movement += Vec3::new(transform.right().x, transform.right().y, transform.right().z);
+        }
+        if keys.pressed(PAN_LEFT_KEY) {
+            movement -= Vec3::new(transform.right().x, transform.right().y, transform.right().z);
+        }
+
+        if movement != Vec3::ZERO {
+            let delta = movement.normalize_or_zero() * PAN_SPEED;
+            pan_offset.0 += Vec3::new(delta.x, 0.0, delta.z);
+        }
+
+        if mouse_buttons.pressed(MOUSE_PAN_BUTTON) {
+            let total_delta = mouse_motion.delta;
+            let right = transform.right();
+            let forward = transform.forward();
+            pan_offset.0 += (right * -total_delta.x + forward * total_delta.y) * sensitivity.x;
+        }
     }
 }
 
+fn orbit_ortho_camera(
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(
+        &mut Transform,
+        &CameraSensitivity,
+        &mut OrbitControl,
+        &PanOffset,
+        &CameraMode,
+    ), With<Player>>,
+) {
+    let Ok((mut transform, sensitivity, mut orbit, pan_offset, camera_mode)) = query.single_mut() else {
+        return;
+    };
 
-fn setup_sim(mut commands: Commands){
+    // Update angles only in 3D modes
+    match camera_mode {
+        CameraMode::Perspective3D | CameraMode::Orthographic3D => {
+            if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) {
+                let delta = accumulated_mouse_motion.delta;
+                orbit.yaw -= delta.x * sensitivity.x;
+                orbit.pitch -= delta.y * sensitivity.y;
+            }
+
+            if keyboard_input.pressed(ORBIT_LEFT_KEY) {
+                orbit.yaw += 0.02;
+            }
+            if keyboard_input.pressed(ORBIT_RIGHT_KEY) {
+                orbit.yaw -= 0.02;
+            }
+
+            const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
+            orbit.pitch = orbit.pitch.clamp(-PITCH_LIMIT, PITCH_LIMIT);
+        }
+        CameraMode::Orthographic2D => {
+            // Reset angles for 2D mode to ensure top-down view
+            orbit.yaw = 0.0;
+            orbit.pitch = 0.0;
+        }
+    }
+
+    // Update camera position based on current mode
+    let target = pan_offset.0;
+    match camera_mode {
+        CameraMode::Orthographic2D => {
+            // Strict top-down view in 2D mode
+            transform.translation = target + Vec3::Y * orbit.radius;
+            transform.look_at(target, Vec3::Y);
+        }
+        CameraMode::Perspective3D | CameraMode::Orthographic3D => {
+            let x = orbit.radius * orbit.pitch.cos() * orbit.yaw.cos();
+            let y = orbit.radius * orbit.pitch.sin();
+            let z = orbit.radius * orbit.pitch.cos() * orbit.yaw.sin();
+            transform.translation = target + Vec3::new(x, y, z);
+            transform.look_at(target, Vec3::Y);
+        }
+    }
+}
+
+fn orbit_perspective_camera(
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(
+        &mut Transform,
+        &CameraSensitivity,
+        &mut OrbitControl,
+        &PanOffset,
+        &CameraMode,
+    ), With<Player>>,
+) {
+    let Ok((mut transform, sensitivity, mut orbit, pan_offset, camera_mode)) = query.single_mut() else {
+        return;
+    };
+
+    if *camera_mode != CameraMode::Orthographic2D {
+        if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) {
+            let delta = accumulated_mouse_motion.delta;
+            orbit.yaw -= delta.x * sensitivity.x;
+            orbit.pitch -= delta.y * sensitivity.y;
+        }
+
+        if keyboard_input.pressed(ORBIT_LEFT_KEY) {
+            orbit.yaw += 0.02;
+        }
+        if keyboard_input.pressed(ORBIT_RIGHT_KEY) {
+            orbit.yaw -= 0.02;
+        }
+
+        const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
+        orbit.pitch = orbit.pitch.clamp(-PITCH_LIMIT, PITCH_LIMIT);
+
+        let target = pan_offset.0;
+        let x = orbit.radius * orbit.pitch.cos() * orbit.yaw.cos();
+        let y = orbit.radius * orbit.pitch.sin();
+        let z = orbit.radius * orbit.pitch.cos() * orbit.yaw.sin();
+        transform.translation = target + Vec3::new(x, y, z);
+        transform.look_at(target, Vec3::Y);
+    }
+}
+
+fn zoom_ortho_camera(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Projection, With<Player>>,
+) {
+    let mut projection = match query.single_mut() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+
+    let Projection::Orthographic(ortho) = &mut *projection else {
+        return;
+    };
+
+    // Zoom in
+    if keyboard_input.pressed(ZOOM_IN_KEY) {
+        ortho.scale *= 1.0 - ZOOM_SPEED;
+        ortho.scale = ortho.scale.max(MIN_ZOOM);
+    }
+
+    // Zoom out
+    if keyboard_input.pressed(ZOOM_OUT_KEY) {
+        ortho.scale *= 1.0 + ZOOM_SPEED;
+        ortho.scale = ortho.scale.min(MAX_ZOOM);
+    }
+}
+
+fn zoom_perspective_camera(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Projection, With<Player>>,
+) {
+    let mut projection = match query.single_mut() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+
+    let Projection::Perspective(perspective) = &mut *projection else {
+        return;
+    };
+
+    if keyboard_input.pressed(ZOOM_IN_KEY) {
+        perspective.fov -= ZOOM_SPEED;
+        perspective.fov = perspective.fov.max(MIN_ZOOM);
+    }
+
+    if keyboard_input.pressed(ZOOM_OUT_KEY) {
+        perspective.fov += ZOOM_SPEED;
+        perspective.fov = perspective.fov.min(MAX_ZOOM);
+    }
+}
+
+fn toggle_camera_mode(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut CameraMode, &mut Projection), With<Player>>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        if let Ok((mut mode, mut projection)) = query.single_mut() {
+            *mode = match *mode {
+                CameraMode::Perspective3D => CameraMode::Orthographic3D,
+                CameraMode::Orthographic3D => CameraMode::Orthographic2D,
+                CameraMode::Orthographic2D => CameraMode::Perspective3D,
+            };
+            *projection = match *mode {
+                CameraMode::Perspective3D => Projection::Perspective(PerspectiveProjection {
+                    fov: FRAC_PI_2,
+                    ..default()
+                }),
+                CameraMode::Orthographic3D => Projection::Orthographic(OrthographicProjection {
+                    scaling_mode: ScalingMode::FixedVertical {
+                        viewport_height: 6.0,
+                    },
+                    ..OrthographicProjection::default_3d()
+                }),
+                CameraMode::Orthographic2D => Projection::Orthographic(OrthographicProjection {
+                    scaling_mode: ScalingMode::FixedVertical {
+                        viewport_height: 6.0,
+                    },
+                    ..OrthographicProjection::default_3d()
+                }),
+            };
+        }
+    }
+}
+
+fn setup_sim(mut commands: Commands) {
     let mut sim = Simulation::default();
 
     // Define joint positions
@@ -358,9 +639,7 @@ fn setup_sim(mut commands: Commands){
         joint_b: joint_a,
         target_distance: link_da_len,
     }));
-    
-    //insert the sim into the ECS
-    commands.insert_resource(SimWrapper{sim});
+
+    // Insert the sim into the ECS
+    commands.insert_resource(SimWrapper { sim });
 }
-
-
