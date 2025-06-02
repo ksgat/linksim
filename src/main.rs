@@ -1,7 +1,6 @@
 use bevy::{
     color::palettes::tailwind, 
     input::mouse::AccumulatedMouseMotion, 
-    pbr::NotShadowCaster,
     render::camera::ScalingMode,
     prelude::*, render::view::RenderLayers,
 };
@@ -19,6 +18,7 @@ const PAN_RIGHT_KEY: KeyCode = KeyCode::KeyD;
 const ORBIT_LEFT_KEY: KeyCode = KeyCode::KeyQ;
 const ORBIT_RIGHT_KEY: KeyCode = KeyCode::KeyE;
 const MOUSE_ORBIT_BUTTON: MouseButton = MouseButton::Right;
+const MOUSE_PAN_BUTTON: MouseButton = MouseButton::Left;
 
 // Added missing zoom keys
 const ZOOM_IN_KEY: KeyCode = KeyCode::Equal;
@@ -145,18 +145,20 @@ fn spawn_world_model(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
-    let cylinder = meshes.add(Cylinder::new(0.5, 1.0).mesh().resolution(50));
+    
+    //let cube: Handle<Mesh> = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
+    //let cylinder = meshes.add(Cylinder::new(0.5, 1.0).mesh().resolution(50));
 
     let material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         ..Default::default()
     });
-
+    
     commands.spawn((
         Mesh3d(floor), 
         MeshMaterial3d(material.clone())
     ));
+    /*
     commands.spawn((
         Mesh3d(cube.clone()),
         MeshMaterial3d(material.clone()),
@@ -172,6 +174,50 @@ fn spawn_world_model(
         MeshMaterial3d(material),
         Transform::from_xyz(1.0, 1.75, 0.0),
     ));
+     */
+    
+    // Add XYZ arrows
+    let arrow_length = 1.0;
+    let arrow_thickness = 0.05;
+
+    let x_arrow_material: Handle<StandardMaterial> = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.0, 0.0),
+        ..Default::default()
+    });
+    let y_arrow_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.0, 1.0, 0.0),
+        ..Default::default()
+    });
+    let z_arrow_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.0, 0.0, 1.0),
+        ..Default::default()
+    });
+
+    let arrow_mesh = meshes.add(Cylinder::new(arrow_thickness, arrow_length).mesh().resolution(20));
+
+    // X-axis arrow
+    commands.spawn((
+        Mesh3d(arrow_mesh.clone()),
+        MeshMaterial3d(x_arrow_material),
+        Transform::from_translation(Vec3::new(arrow_length / 2.0, 0.0, 0.0))
+            .with_rotation(Quat::from_rotation_z(-FRAC_PI_2)),
+    ));
+
+    // Y-axis arrow
+    commands.spawn((
+        Mesh3d(arrow_mesh.clone()),
+        MeshMaterial3d(y_arrow_material),
+        Transform::from_translation(Vec3::new(0.0, arrow_length / 2.0, 0.0)),
+    ));
+
+    // Z-axis arrow
+    commands.spawn((
+        Mesh3d(arrow_mesh),
+        MeshMaterial3d(z_arrow_material),
+        Transform::from_translation(Vec3::new(0.0, 0.0, arrow_length / 2.0))
+            .with_rotation(Quat::from_rotation_x(FRAC_PI_2)),
+    ));
+
 }
 
 fn spawn_lights(mut commands: Commands) {
@@ -226,7 +272,6 @@ fn update_camera_mode_text(
         *text = Text::new(camera_mode_indicator.0.clone());
     }
 }
-
 fn camera_control_system(
     mut cameras: Query<(&mut Transform, &mut Projection, &mut CameraController), With<Player>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -235,50 +280,89 @@ fn camera_control_system(
     time: Res<Time>,
     windows: Query<&Window>,
 ) {
-    let Ok((mut transform, mut projection, mut controller)) = cameras.get_single_mut() else {
+    let Ok((mut transform, mut projection, mut controller)) = cameras.single_mut() else {
         return;
     };
-
+    
     let dt = time.delta_secs();
-
+    
     // Pan with WASD
-    let forward = transform.forward();
-    let right = transform.right();
-    let mut pan_move = Vec3::ZERO;
-
-    if keys.pressed(PAN_UP_KEY) {
-        pan_move += forward * PAN_SPEED * dt;
+    if controller.mode == CameraMode::Orthographic2D {
+        // 2D movement - simple XZ plane movement
+        let mut pan_move = Vec3::ZERO;
+        if keys.pressed(PAN_UP_KEY) {
+            pan_move.z -= PAN_SPEED * dt; 
+        }
+        if keys.pressed(PAN_DOWN_KEY) {
+            pan_move.z += PAN_SPEED * dt;
+        }
+        if keys.pressed(PAN_RIGHT_KEY) {
+            pan_move.x += PAN_SPEED * dt;
+        }
+        if keys.pressed(PAN_LEFT_KEY) {
+            pan_move.x -= PAN_SPEED * dt;
+        }
+        controller.pan_offset += pan_move;
+    } else {
+        // 3D movement - camera-relative directions
+        let forward = transform.forward();
+        let right = transform.right();
+        let mut pan_move = Vec3::ZERO;
+    
+        if keys.pressed(PAN_UP_KEY) {
+            pan_move += forward * PAN_SPEED * dt;
+        }
+        if keys.pressed(PAN_DOWN_KEY) {
+            pan_move -= forward * PAN_SPEED * dt;
+        }
+        if keys.pressed(PAN_RIGHT_KEY) {
+            pan_move += right * PAN_SPEED * dt;
+        }
+        if keys.pressed(PAN_LEFT_KEY) {
+            pan_move -= right * PAN_SPEED * dt;
+        }
+        
+        pan_move.y = 0.0;
+        controller.pan_offset += pan_move;
     }
-    if keys.pressed(PAN_DOWN_KEY) {
-        pan_move -= forward * PAN_SPEED * dt;
+    
+    if mouse_buttons.pressed(MOUSE_PAN_BUTTON) {
+        let total_delta = mouse_motion.delta;
+        match controller.mode {
+            CameraMode::Orthographic3D => {
+                let sensitivity_x = controller.sensitivity.x;
+                let right = transform.right();
+                let up = transform.forward();
+                controller.pan_offset += (right * -total_delta.x + up * total_delta.y) * sensitivity_x;
+            }
+            CameraMode::Perspective3D | CameraMode::Orthographic2D => {
+                let sensitivity_x = controller.sensitivity.x;
+                let right = transform.right();
+                let up = transform.up();
+                controller.pan_offset += (right * -total_delta.x + up * total_delta.y) * sensitivity_x;
+            }
+        }
     }
-    if keys.pressed(PAN_RIGHT_KEY) {
-        pan_move += right * PAN_SPEED * dt;
-    }
-    if keys.pressed(PAN_LEFT_KEY) {
-        pan_move -= right * PAN_SPEED * dt;
-    }
+    let mut yaw_delta = 0.0;
+    let mut pitch_delta = 0.0;
 
-    pan_move.y = 0.0; // Restrict to XZ plane
-    controller.pan_offset += pan_move;
-
-    // Orbit with mouse drag or Q/E keys (only for Perspective3D and Orthographic3D)
-    if controller.mode != CameraMode::Orthographic2D {
-        let mut yaw_delta = 0.0;
-        let mut pitch_delta = 0.0;
-
-        if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) {
-            yaw_delta += -mouse_motion.delta.x * controller.sensitivity.x;
+    if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) {
+        yaw_delta += -mouse_motion.delta.x * controller.sensitivity.x;
+        if controller.mode != CameraMode::Orthographic2D {
             pitch_delta += -mouse_motion.delta.y * controller.sensitivity.y;
         }
-        if keys.pressed(ORBIT_LEFT_KEY) {
-            yaw_delta += 1.0 * dt;
-        }
-        if keys.pressed(ORBIT_RIGHT_KEY) {
-            yaw_delta -= 1.0 * dt;
-        }
+    }
+    if keys.pressed(ORBIT_LEFT_KEY) {
+        yaw_delta += 1.0 * dt;
+    }
+    if keys.pressed(ORBIT_RIGHT_KEY) {
+        yaw_delta -= 1.0 * dt;
+    }
 
-        controller.yaw += yaw_delta;
+    controller.yaw += yaw_delta;
+    
+    // Only apply pitch for 3D modes
+    if controller.mode != CameraMode::Orthographic2D {
         controller.pitch = (controller.pitch + pitch_delta).clamp(-FRAC_PI_2 + 0.05, FRAC_PI_2 - 0.05);
     }
 
@@ -311,14 +395,14 @@ fn camera_control_system(
         controller.mode = match controller.mode {
             CameraMode::Perspective3D => {
                 *projection = Projection::from(OrthographicProjection {
-                    scaling_mode: ScalingMode::AutoMin { min_width: (6.0), min_height: (6.0) },
+                    scaling_mode: ScalingMode::AutoMin { min_width: 6.0, min_height: 6.0 },
                     ..OrthographicProjection::default_2d()
                 });
                 CameraMode::Orthographic3D
             }
             CameraMode::Orthographic3D => {
                 *projection = Projection::from(OrthographicProjection {
-                    scaling_mode: ScalingMode::AutoMin { min_width: (6.0), min_height: (6.0) },
+                    scaling_mode: ScalingMode::AutoMin { min_width: 6.0, min_height: 6.0 },
                     ..OrthographicProjection::default_2d()
                 });
                 CameraMode::Orthographic2D
@@ -340,12 +424,19 @@ fn camera_control_system(
 
     // Final position and look-at calculation
     match controller.mode {
-        CameraMode::Orthographic2D => {
-            let fixed_height = 10.0; 
-            transform.translation = Vec3::new(controller.pan_offset.x, fixed_height, controller.pan_offset.z);
-            transform.look_at(controller.pan_offset, Vec3::Z); 
-        }
-        _ => {
+            CameraMode::Orthographic2D => {
+
+                transform.translation = Vec3::new(
+                    controller.pan_offset.x,
+                    10.0,
+                    controller.pan_offset.z,
+                );
+
+                // Set rotation: yaw around Y, then -90deg around X to look down
+                transform.rotation = Quat::from_axis_angle(Vec3::Y, controller.yaw)
+                    * Quat::from_axis_angle(Vec3::X, -std::f32::consts::FRAC_PI_2);
+            }       
+             _ => {
             let (sin_yaw, cos_yaw) = controller.yaw.sin_cos();
             let (sin_pitch, cos_pitch) = controller.pitch.sin_cos();
 
@@ -361,7 +452,6 @@ fn camera_control_system(
         }
     }
 }
-
 fn setup_sim(mut commands: Commands) {
     let mut sim = Simulation::default();
 
@@ -462,3 +552,4 @@ fn setup_sim(mut commands: Commands) {
     // Insert the sim into the ECS
     commands.insert_resource(SimWrapper { sim });
 }
+
