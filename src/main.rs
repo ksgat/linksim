@@ -14,7 +14,7 @@ const PAN_UP_KEY: KeyCode = KeyCode::KeyW;
 const PAN_DOWN_KEY: KeyCode = KeyCode::KeyS;
 const PAN_LEFT_KEY: KeyCode = KeyCode::KeyA;
 const PAN_RIGHT_KEY: KeyCode = KeyCode::KeyD;
-
+const SHIFT: KeyCode = KeyCode::ShiftLeft;
 const ORBIT_LEFT_KEY: KeyCode = KeyCode::KeyQ;
 const ORBIT_RIGHT_KEY: KeyCode = KeyCode::KeyE;
 const MOUSE_ORBIT_BUTTON: MouseButton = MouseButton::Right;
@@ -326,7 +326,7 @@ fn camera_control_system(
         controller.pan_offset += pan_move;
     }
     
-    if mouse_buttons.pressed(MOUSE_PAN_BUTTON) {
+    if mouse_buttons.pressed(MOUSE_PAN_BUTTON) && keys.pressed(SHIFT){
         let total_delta = mouse_motion.delta;
         match controller.mode {
             CameraMode::Orthographic3D => {
@@ -346,7 +346,7 @@ fn camera_control_system(
     let mut yaw_delta = 0.0;
     let mut pitch_delta = 0.0;
 
-    if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) {
+    if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) && keys.pressed(SHIFT){
         yaw_delta += -mouse_motion.delta.x * controller.sensitivity.x;
         if controller.mode != CameraMode::Orthographic2D {
             pitch_delta += -mouse_motion.delta.y * controller.sensitivity.y;
