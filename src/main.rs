@@ -2,7 +2,10 @@ use bevy::{
     color::palettes::tailwind, 
     input::mouse::AccumulatedMouseMotion, 
     render::camera::ScalingMode,
-    prelude::*, render::view::RenderLayers,
+    prelude::*, 
+    render::view::RenderLayers,
+    ecs::event::EventWriter,
+
 };
 
 pub mod simcore;
@@ -96,12 +99,30 @@ struct CameraModeIndicator(String);
 #[derive(Component)]
 struct CameraModeText;
 
+#[derive(Event)]
+struct PickedJoint {
+    entity: Entity,
+}
 
+struct ReleasedJoint {
+    entity: Entity,
+}
+
+#[derive(Component)]
+struct Selected;
+
+
+
+
+#[derive(Default, Resource)]
+struct SelectedJoint(Option<Entity>);
 
 fn main() {
     App::new()
+        .add_event::<PickedJoint>()
         .add_plugins(DefaultPlugins)
         .insert_resource(CameraModeIndicator::default())
+        .insert_resource(SelectedJoint::default())
         .add_systems(
             Startup,
             (
@@ -110,10 +131,12 @@ fn main() {
                 spawn_lights,
                 spawn_text,
                 setup_sim,
-            ),
+                render_sim,
+            ).chain(),
         )
         .add_systems(Update, camera_control_system)
         .add_systems(Update, (update_camera_mode_indicator, update_camera_mode_text))
+        .add_systems(Update, (interact_system, highlight_system, reset_on_release_system))
         .run();
 }
 
@@ -332,7 +355,7 @@ fn camera_control_system(
             CameraMode::Orthographic3D => {
                 let sensitivity_x = controller.sensitivity.x;
                 let right = transform.right();
-                let up = transform.forward();
+                let up = transform.up();
                 controller.pan_offset += (right * -total_delta.x + up * total_delta.y) * sensitivity_x;
             }
             CameraMode::Perspective3D | CameraMode::Orthographic2D => {
@@ -452,6 +475,81 @@ fn camera_control_system(
         }
     }
 }
+
+fn render_sim(
+    sim_wrapper: Res<SimWrapper>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let sim = &sim_wrapper.sim;
+
+    let joint_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 1.0, 0.0),
+        ..Default::default()
+    });
+
+    let link_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.0, 0.0, 1.0),
+        ..Default::default()
+    });
+
+    let joint_mesh = meshes.add(Sphere::new(0.1).mesh());
+
+
+    let link_mesh = meshes.add(Cuboid::new(0.05, 0.05, 1.0));
+
+    for (joint_id, joint) in &sim.joints {
+        let joint_position = match joint.position {
+            Position::Vec2(v) => Vec3::new(v.x, 0.0, v.y),
+            Position::Vec3(v) => Vec3::new(v.x, v.y, v.z),
+        };
+        commands.spawn((
+            Mesh3d(joint_mesh.clone()),
+            MeshMaterial3d(joint_material.clone()),
+            Transform::from_translation(joint_position),
+            JointWrapper { joint_id: joint_id },
+        ));
+    }
+
+    for link in sim.links.iter() {
+        let (_, link_data) = link;
+        if link_data.joints.len() == 2 {
+            let joint_a = sim.joints.get(link_data.joints[0]).unwrap();
+            let joint_b = sim.joints.get(link_data.joints[1]).unwrap();
+
+            let start = match joint_a.position {
+                Position::Vec2(v) => Vec3::new(v.x, 0.0, v.y),
+                Position::Vec3(v) => Vec3::new(v.x, v.y, v.z),
+            };
+            let end = match joint_b.position {
+                Position::Vec2(v) => Vec3::new(v.x, 0.0, v.y),
+                Position::Vec3(v) => Vec3::new(v.x, v.y, v.z),
+            };
+            let mid = (start + end) / 2.0;
+
+            let direction = end - start;
+            let length = direction.length();
+            let rotation = Quat::from_rotation_arc(Vec3::Z, direction.normalize());
+
+            commands.spawn((
+                Mesh3d(link_mesh.clone()),
+                MeshMaterial3d(link_material.clone()),
+                Transform {
+                    translation: mid,
+                    rotation,
+                    scale: Vec3::new(0.05, 0.05, length),
+                },
+                LinkWrapper {
+                    link_id: link.0, // Use the first element of the tuple as the link_id
+                },
+            ));
+        }
+    }
+}
+
+
+
 fn setup_sim(mut commands: Commands) {
     let mut sim = Simulation::default();
 
@@ -553,3 +651,112 @@ fn setup_sim(mut commands: Commands) {
     commands.insert_resource(SimWrapper { sim });
 }
 
+fn interact_system(
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window>,
+    cameras: Query<(&Camera, &GlobalTransform), With<Player>>,
+    joints: Query<(Entity, &Transform), With<JointWrapper>>, // <-- Added With<JointWrapper>
+    mut picked_joints: EventWriter<PickedJoint>,
+) {
+    // Only fire on click
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        let window = match windows.single() {
+            Ok(w) => w,
+            _ => return, // bail if no window
+        };
+
+        let cursor_pos = match window.cursor_position() {
+            Some(pos) => pos,
+            None => return, // bail if no cursor
+        };
+
+        let (camera, camera_transform) = match cameras.single() {
+            Ok(pair) => pair,
+            _ => return, // bail if no camera
+        };
+
+        let ray = match camera.viewport_to_world(camera_transform, cursor_pos) {
+            Ok(ray) => ray,
+            _ => return, // bail if ray failed
+        };
+
+        // Track closest joint
+        let mut closest: Option<(Entity, f32)> = None;
+
+        for (entity, transform) in joints.iter() {
+            let joint_pos = transform.translation;
+
+            // Compute shortest distance from point to ray in 3D space
+            let to_point = joint_pos - ray.origin;
+            let projected_length = to_point.dot(ray.direction.as_vec3().normalize());
+            let closest_point_on_ray = ray.origin + projected_length * ray.direction;
+            let distance = joint_pos.distance(closest_point_on_ray);
+
+            // If within threshold and closer than current, record it
+            if distance < 0.2 {
+                match closest {
+                    Some((_, prev_dist)) if distance < prev_dist => {
+                        closest = Some((entity, distance));
+                    }
+                    None => {
+                        closest = Some((entity, distance));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // If a joint was found, emit event
+        if let Some((entity, _)) = closest {
+            picked_joints.write(PickedJoint { entity });
+        }
+    }
+}
+
+fn highlight_system(
+    mut events: EventReader<PickedJoint>,
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    joint_query: Query<(Entity, &MeshMaterial3d<StandardMaterial>), With<JointWrapper>>,
+    mut selected_joint: ResMut<SelectedJoint>,
+) {
+    for event in events.read() {
+        // Reset old selected joint to yellow
+        if let Some(old_entity) = selected_joint.0 {
+            if let Ok((_, material)) = joint_query.get(old_entity) {
+                if let Some(mat) = materials.get_mut(&material.0) {
+                    mat.base_color = Color::srgb(1.0, 1.0, 0.0); // Original yellow
+                }
+                commands.entity(old_entity).remove::<Selected>();
+            }
+        }
+
+        // Highlight new selected joint
+        if let Ok((_, material)) = joint_query.get(event.entity) {
+            if let Some(mat) = materials.get_mut(&material.0) {
+                mat.base_color = Color::srgb(1.0, 0.0, 0.0); // Red
+            }
+            commands.entity(event.entity).insert(Selected);
+
+            // Update stored selected joint
+            selected_joint.0 = Some(event.entity);
+        }
+    }
+}
+
+    fn reset_on_release_system(
+        mouse_buttons: Res<ButtonInput<MouseButton>>,
+        mut commands: Commands,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        joint_query: Query<(Entity, &MeshMaterial3d<StandardMaterial>), With<Selected>>,
+    ) {
+        if mouse_buttons.just_released(MouseButton::Left) {
+            for (entity, material) in joint_query.iter() {
+                if let Some(mat) = materials.get_mut(&material.0) {
+                    mat.base_color = Color::srgb(1.0, 1.0, 0.0); // Original yellow
+                }
+                commands.entity(entity).remove::<Selected>();
+            }
+        }
+    }
+    

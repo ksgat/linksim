@@ -1,3 +1,7 @@
 /target
 dist/linksim-d608ac188ac55f5d_bg.wasm
 dist/linksim-d608ac188ac55f5d.js
+.glimpse
+index.html
+dist/linksim-6e533402014e090.js
+dist/linksim-6e533402014e090_bg.wasm
