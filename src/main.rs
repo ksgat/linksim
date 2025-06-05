@@ -11,7 +11,6 @@ use bevy::{
 pub mod simcore;
 use crate::simcore::types::*;
 use std::f32::consts::FRAC_PI_2;
-
 // Keybindings constants
 const PAN_UP_KEY: KeyCode = KeyCode::KeyW;
 const PAN_DOWN_KEY: KeyCode = KeyCode::KeyS;
@@ -37,6 +36,9 @@ const PAN_SPEED: f32 = 5.0;
 const ZOOM_SPEED: f32 = 5.0;
 const MIN_ZOOM: f32 = 1.0;
 const MAX_ZOOM: f32 = 20.0;
+
+
+
 
 /// Sim core wrapper types
 #[derive(Resource)]
@@ -69,7 +71,7 @@ pub enum CameraMode {
     Orthographic2D,
 }
 
-// Unified camera controller component
+// camera controller component
 #[derive(Component)]
 pub struct CameraController {
     pub orbit_radius: f32,
@@ -99,14 +101,13 @@ struct CameraModeIndicator(String);
 #[derive(Component)]
 struct CameraModeText;
 
+
+//dragging stu
 #[derive(Event)]
 struct PickedJoint {
     entity: Entity,
 }
 
-struct ReleasedJoint {
-    entity: Entity,
-}
 
 #[derive(Component)]
 struct Selected;
@@ -116,10 +117,17 @@ struct Selected;
 
 #[derive(Default, Resource)]
 struct SelectedJoint(Option<Entity>);
+#[derive(Event)]
+pub struct MoveJoint {
+    pub joint_id: JointId,
+    pub new_position: Position, 
+}
+
 
 fn main() {
     App::new()
         .add_event::<PickedJoint>()
+        .add_event::<MoveJoint>()
         .add_plugins(DefaultPlugins)
         .insert_resource(CameraModeIndicator::default())
         .insert_resource(SelectedJoint::default())
@@ -131,12 +139,21 @@ fn main() {
                 spawn_lights,
                 spawn_text,
                 setup_sim,
-                render_sim,
+                render_sim
             ).chain(),
         )
         .add_systems(Update, camera_control_system)
         .add_systems(Update, (update_camera_mode_indicator, update_camera_mode_text))
-        .add_systems(Update, (interact_system, highlight_system, reset_on_release_system))
+        .add_systems(Update, (
+            interact_system, 
+            highlight_system,  
+            reset_on_release_system,
+            joint_drag_system,
+            sim_step_system,
+            update_joint_visuals.after(sim_step_system),
+            update_link_visuals.after(sim_step_system),
+        ))
+        
         .run();
 }
 
@@ -309,9 +326,7 @@ fn camera_control_system(
     
     let dt = time.delta_secs();
     
-    // Pan with WASD
     if controller.mode == CameraMode::Orthographic2D {
-        // 2D movement - simple XZ plane movement
         let mut pan_move = Vec3::ZERO;
         if keys.pressed(PAN_UP_KEY) {
             pan_move.z -= PAN_SPEED * dt; 
@@ -327,7 +342,6 @@ fn camera_control_system(
         }
         controller.pan_offset += pan_move;
     } else {
-        // 3D movement - camera-relative directions
         let forward = transform.forward();
         let right = transform.right();
         let mut pan_move = Vec3::ZERO;
@@ -413,7 +427,6 @@ fn camera_control_system(
         }
     }
 
-    // Mode switching with Space key
     if keys.just_pressed(KeyCode::Space) {
         controller.mode = match controller.mode {
             CameraMode::Perspective3D => {
@@ -445,7 +458,6 @@ fn camera_control_system(
         };
     }
 
-    // Final position and look-at calculation
     match controller.mode {
             CameraMode::Orthographic2D => {
 
@@ -541,7 +553,7 @@ fn render_sim(
                     scale: Vec3::new(0.05, 0.05, length),
                 },
                 LinkWrapper {
-                    link_id: link.0, // Use the first element of the tuple as the link_id
+                    link_id: link.0,
                 },
             ));
         }
@@ -553,11 +565,10 @@ fn render_sim(
 fn setup_sim(mut commands: Commands) {
     let mut sim = Simulation::default();
 
-    // Define joint positions
-    let joint_pos_a = Position::Vec2(glam::Vec2::new(0.0, 0.0));
-    let joint_pos_b = Position::Vec2(glam::Vec2::new(2.0, 0.0));
-    let joint_pos_c = Position::Vec2(glam::Vec2::new(4.0, 2.0));
-    let joint_pos_d = Position::Vec2(glam::Vec2::new(1.0, 2.0));
+    let joint_pos_a = Position::Vec3(glam::Vec3::new(0.0, 0.0, 0.0));
+    let joint_pos_b = Position::Vec3(glam::Vec3::new(2.0, 0.0, 0.0));
+    let joint_pos_c = Position::Vec3(glam::Vec3::new(2.0, 0.0, 2.0));
+    let joint_pos_d = Position::Vec3(glam::Vec3::new(0.0, 0.0, 2.0));
 
     // Create joints
     let joint_a = sim.joints.insert(Joint {
@@ -580,6 +591,8 @@ fn setup_sim(mut commands: Commands) {
         joint_type: JointType::Revolute,
         connected_links: Vec::new(),
     });
+
+
 
     // Define link properties
     let link_ab_len = joint_pos_a.distance(joint_pos_b);
@@ -621,8 +634,8 @@ fn setup_sim(mut commands: Commands) {
         target_position: joint_pos_a,
     }));
     sim.constraints.push(Box::new(FixedPositionConstraint {
-        joint_id: joint_c,
-        target_position: joint_pos_c,
+        joint_id: joint_b,
+        target_position: joint_pos_b,
     }));
 
     // Add distance constraints
@@ -647,7 +660,6 @@ fn setup_sim(mut commands: Commands) {
         target_distance: link_da_len,
     }));
 
-    // Insert the sim into the ECS
     commands.insert_resource(SimWrapper { sim });
 }
 
@@ -655,7 +667,7 @@ fn interact_system(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     cameras: Query<(&Camera, &GlobalTransform), With<Player>>,
-    joints: Query<(Entity, &Transform), With<JointWrapper>>, // <-- Added With<JointWrapper>
+    joints: Query<(Entity, &Transform), With<JointWrapper>>, 
     mut picked_joints: EventWriter<PickedJoint>,
 ) {
     // Only fire on click
@@ -717,32 +729,37 @@ fn highlight_system(
     mut events: EventReader<PickedJoint>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    joint_query: Query<(Entity, &MeshMaterial3d<StandardMaterial>), With<JointWrapper>>,
+    mut joint_query: Query<(Entity, &mut MeshMaterial3d<StandardMaterial>), With<JointWrapper>>,
     mut selected_joint: ResMut<SelectedJoint>,
 ) {
     for event in events.read() {
-        // Reset old selected joint to yellow
+        // Reset old selected joint to yellow by cloning its material
         if let Some(old_entity) = selected_joint.0 {
-            if let Ok((_, material)) = joint_query.get(old_entity) {
-                if let Some(mat) = materials.get_mut(&material.0) {
-                    mat.base_color = Color::srgb(1.0, 1.0, 0.0); // Original yellow
+            if let Ok((_, mut material_handle)) = joint_query.get_mut(old_entity) {
+                if let Some(old_mat) = materials.get(&material_handle.0) {
+                    let mut new_mat = old_mat.clone();
+                    new_mat.base_color = Color::srgb(1.0, 1.0, 0.0); // Yellow
+                    let new_handle = materials.add(new_mat);
+                    material_handle.0 = new_handle;
                 }
                 commands.entity(old_entity).remove::<Selected>();
             }
         }
 
-        // Highlight new selected joint
-        if let Ok((_, material)) = joint_query.get(event.entity) {
-            if let Some(mat) = materials.get_mut(&material.0) {
-                mat.base_color = Color::srgb(1.0, 0.0, 0.0); // Red
+        // Highlight new selected joint with a cloned red material
+        if let Ok((_, mut material_handle)) = joint_query.get_mut(event.entity) {
+            if let Some(old_mat) = materials.get(&material_handle.0) {
+                let mut new_mat = old_mat.clone();
+                new_mat.base_color = Color::srgb(1.0, 0.0, 0.0); // Red
+                let new_handle = materials.add(new_mat);
+                material_handle.0 = new_handle;
             }
             commands.entity(event.entity).insert(Selected);
-
-            // Update stored selected joint
             selected_joint.0 = Some(event.entity);
         }
     }
 }
+
 
     fn reset_on_release_system(
         mouse_buttons: Res<ButtonInput<MouseButton>>,
@@ -759,4 +776,113 @@ fn highlight_system(
             }
         }
     }
+
+
+    fn joint_drag_system(
+        mouse_buttons: Res<ButtonInput<MouseButton>>,
+        windows: Query<&Window>,
+        cameras: Query<(&Camera, &GlobalTransform, &CameraController), With<Player>>,
+        selected_joints: Query<&JointWrapper, With<Selected>>,
+        mut sim_wrapper: ResMut<SimWrapper>,
+        mut move_joint_events: EventWriter<MoveJoint>,
+    ) {
+        if mouse_buttons.pressed(MouseButton::Left) {
+            let window = match windows.single() {
+                Ok(w) => w,
+                _ => return,
+            };
+        
+            let cursor_pos = match window.cursor_position() {
+                Some(pos) => pos,
+                None => return,
+            };
+        
+            let (camera, camera_transform, controller) = match cameras.single() {
+                Ok((cam, trans, ctrl)) => (cam, trans, ctrl),
+                _ => return,
+            };
+        
+            let ray = match camera.viewport_to_world(camera_transform, cursor_pos) {
+                Ok(ray) => ray,
+                _ => return,
+            };
+        
+            // Drag selected joint(s) - ALWAYS project to Y=0 plane to lock Y-axis
+            for joint_wrapper in selected_joints.iter() {
+                // Project to Y=0 plane regardless of camera mode
+                let t = (0.0 - ray.origin.y) / ray.direction.y;
+                let point = ray.origin + ray.direction * t;
+                
+                // Always use Vec2 since we're locking to Y=0 plane
+                let new_position = Position::Vec2(glam::Vec2::new(point.x, point.z));
+                
+                // Update the simulation state only
+                if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
+                    joint.position = new_position;
+                }
+                
+                // Send move event
+                move_joint_events.write(MoveJoint {
+                    joint_id: joint_wrapper.joint_id,
+                    new_position,
+                });
+            }
+        }
+    }    
+    fn sim_step_system(
+        mut wrapper: ResMut<SimWrapper>,
+        move_events: EventReader<MoveJoint>,
+    ) {
+        // Only run simulation step if there were joint movements
+        if !move_events.is_empty() {
+            wrapper.sim.step(0.0, 5);
+        }
+    }
+
+
+
+fn update_link_visuals(
+    sim_wrapper: Res<SimWrapper>,
+    mut link_query: Query<(&mut Transform, &LinkWrapper)>,
+) {
+    let sim = &sim_wrapper.sim;
     
+    for (mut transform, link_wrapper) in link_query.iter_mut() {
+        if let Some(link) = sim.links.get(link_wrapper.link_id) {
+            if link.joints.len() == 2 {
+                let joint_a = sim.joints.get(link.joints[0]).unwrap();
+                let joint_b = sim.joints.get(link.joints[1]).unwrap();
+
+                let start = joint_a.position.as_vec3();
+                let end = joint_b.position.as_vec3();
+                let mid = (start + end) / 2.0;
+
+                let direction = end - start;
+                let length = direction.length();
+                
+                // Only update if we have a valid length
+                if length > 0.001 {
+                    let rotation = glam::Quat::from_rotation_arc(glam::Vec3::Z, direction.normalize());
+                    
+                    transform.translation = bevy::prelude::Vec3::new(mid.x, mid.y, mid.z);
+                    transform.rotation = bevy::prelude::Quat::from_xyzw(rotation.x, rotation.y, rotation.z, rotation.w);
+                    transform.scale = Vec3::new(0.05, 0.05, length);
+                }
+            }
+        }
+    }
+}
+
+fn update_joint_visuals(
+    sim_wrapper: Res<SimWrapper>,
+    mut joint_query: Query<(&mut Transform, &JointWrapper)>,
+) {
+    let sim = &sim_wrapper.sim;
+    
+    for (mut transform, joint_wrapper) in joint_query.iter_mut() {
+        if let Some(joint) = sim.joints.get(joint_wrapper.joint_id) {
+            let pos = joint.position.as_vec3();
+            transform.translation = bevy::prelude::Vec3::new(pos.x, pos.y, pos.z);
+        }
+    }
+}
