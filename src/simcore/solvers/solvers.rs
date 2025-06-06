@@ -85,3 +85,33 @@ impl Constraint for DistanceConstraint {
         self
     }
 }
+impl Constraint for PlaneConstraint {
+    fn apply(&self, sim: &mut Simulation) {
+        if let Some(joint) = sim.joints.get_mut(self.joint_id) {
+            let position = joint.position.as_vec3();
+            let normal = self.normal;
+
+            debug_assert!((normal.length() - 1.0).abs() < 1e-6, "Plane normal must be normalized");
+
+            let to_plane = position - self.plane_point;
+            let distance_to_plane = to_plane.dot(normal);
+            let projection = position - normal * distance_to_plane;
+
+            joint.position = Position::Vec3(projection);
+        }
+    }
+
+    fn is_satisfied(&self, sim: &Simulation) -> bool {
+        if let Some(joint) = sim.joints.get(self.joint_id) {
+            let position = joint.position.as_vec3();
+            let to_plane = position - self.plane_point;
+            (to_plane.dot(self.normal)).abs() < 1e-6
+        } else {
+            false
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}

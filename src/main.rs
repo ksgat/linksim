@@ -7,7 +7,6 @@ use bevy::{
     ecs::event::EventWriter,
 
 };
-
 pub mod simcore;
 use crate::simcore::types::*;
 use std::f32::consts::FRAC_PI_2;
@@ -659,6 +658,26 @@ fn setup_sim(mut commands: Commands) {
         joint_b: joint_a,
         target_distance: link_da_len,
     }));
+    sim.constraints.push(Box::new(PlaneConstraint {
+        joint_id: joint_a,
+        normal: glam::Vec3::Y,
+        plane_point: glam::Vec3::ZERO,
+    }));
+    sim.constraints.push(Box::new(PlaneConstraint {
+        joint_id: joint_b,
+        normal: glam::Vec3::Y,
+        plane_point: glam::Vec3::ZERO,
+    }));
+    sim.constraints.push(Box::new(PlaneConstraint {
+        joint_id: joint_c,
+        normal: glam::Vec3::Y,
+        plane_point: glam::Vec3::ZERO,
+    }));
+    sim.constraints.push(Box::new(PlaneConstraint {
+        joint_id: joint_d,
+        normal: glam::Vec3::Y,
+        plane_point: glam::Vec3::ZERO,
+    }));
 
     commands.insert_resource(SimWrapper { sim });
 }
@@ -778,6 +797,8 @@ fn highlight_system(
     }
 
 
+    
+
     fn joint_drag_system(
         mouse_buttons: Res<ButtonInput<MouseButton>>,
         windows: Query<&Window>,
@@ -786,56 +807,56 @@ fn highlight_system(
         mut sim_wrapper: ResMut<SimWrapper>,
         mut move_joint_events: EventWriter<MoveJoint>,
     ) {
-        if mouse_buttons.pressed(MouseButton::Left) {
-            let window = match windows.single() {
-                Ok(w) => w,
-                _ => return,
-            };
-        
-            let cursor_pos = match window.cursor_position() {
-                Some(pos) => pos,
-                None => return,
-            };
-        
-            let (camera, camera_transform, controller) = match cameras.single() {
-                Ok((cam, trans, ctrl)) => (cam, trans, ctrl),
-                _ => return,
-            };
-        
-            let ray = match camera.viewport_to_world(camera_transform, cursor_pos) {
-                Ok(ray) => ray,
-                _ => return,
-            };
-        
-            // Drag selected joint(s) - ALWAYS project to Y=0 plane to lock Y-axis
-            for joint_wrapper in selected_joints.iter() {
-                // Project to Y=0 plane regardless of camera mode
-                let t = (0.0 - ray.origin.y) / ray.direction.y;
-                let point = ray.origin + ray.direction * t;
-                
-                // Always use Vec2 since we're locking to Y=0 plane
-                let new_position = Position::Vec2(glam::Vec2::new(point.x, point.z));
-                
-                // Update the simulation state only
-                if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
-                    joint.position = new_position;
-                }
-                
-                // Send move event
+        if !mouse_buttons.pressed(MouseButton::Left) {
+            return;
+        }
+    
+        let window = match windows.single() {
+            Ok(w) => w,
+            _ => return,
+        };
+    
+        let cursor_pos = match window.cursor_position() {
+            Some(pos) => pos,
+            None => return,
+        };
+    
+        let (camera, camera_transform, _) = match cameras.single() {
+            Ok((cam, trans, _)) => (cam, trans, ()),
+            _ => return,
+        };
+    
+        let ray = match camera.viewport_to_world(camera_transform, cursor_pos) {
+            Ok(ray) => ray,
+            _ => return,
+        };
+    
+        if selected_joints.is_empty() {
+            return;
+        }
+    
+        for joint_wrapper in selected_joints.iter() {
+            if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
+    
+                let pos = ray.origin + ray.direction * 10.0;
+                let new_pos = glam::Vec3::new(pos.x, pos.y, pos.z);
+                joint.position = Position::Vec3(new_pos);
                 move_joint_events.write(MoveJoint {
                     joint_id: joint_wrapper.joint_id,
-                    new_position,
+                    new_position: Position::Vec3(new_pos),
                 });
             }
         }
-    }    
+    }
+      
+
     fn sim_step_system(
         mut wrapper: ResMut<SimWrapper>,
         move_events: EventReader<MoveJoint>,
     ) {
         // Only run simulation step if there were joint movements
         if !move_events.is_empty() {
-            wrapper.sim.step(0.0, 5);
+            wrapper.sim.step(0.0, 20);
         }
     }
 

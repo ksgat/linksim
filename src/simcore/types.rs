@@ -96,3 +96,10 @@ pub struct DistanceConstraint {
     pub joint_b: JointId,
     pub target_distance: f32,
 }
+
+#[derive(Debug, Clone)]
+pub struct PlaneConstraint {
+    pub joint_id: JointId,
+    pub normal: Vec3,
+    pub plane_point: Vec3,
+}
