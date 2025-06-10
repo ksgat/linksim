@@ -90,9 +90,6 @@ impl Constraint for PlaneConstraint {
         if let Some(joint) = sim.joints.get_mut(self.joint_id) {
             let position = joint.position.as_vec3();
             let normal = self.normal;
-
-            debug_assert!((normal.length() - 1.0).abs() < 1e-6, "Plane normal must be normalized");
-
             let to_plane = position - self.plane_point;
             let distance_to_plane = to_plane.dot(normal);
             let projection = position - normal * distance_to_plane;
@@ -115,3 +112,4 @@ impl Constraint for PlaneConstraint {
         self
     }
 }
+
