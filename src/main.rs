@@ -144,7 +144,7 @@ fn setup_sim(mut commands: Commands) {
         joint_b: joint_a,
         target_distance: link_da_len,
     }));
-    let plane = glam::Vec3::new(1.0, 1.0, 0.0).normalize();
+    let plane = glam::Vec3::Y;
     sim.constraints.push(Box::new(PlaneConstraint {
         joint_id: joint_a,
         normal: plane,
