@@ -134,7 +134,7 @@ pub fn sim_step_system(
 ) {
     // Only run simulation step if there were joint movements
     if !move_events.is_empty() {
-        wrapper.sim.step(0.0, 20);
+        wrapper.sim.step(0.0, 40);
     }
 }
 

@@ -30,7 +30,6 @@ pub struct CameraModeIndicator(String);
 #[derive(Component)]
 pub struct CameraModeText;
 
-
 // camera controller component
 #[derive(Component)]
 pub struct CameraController {

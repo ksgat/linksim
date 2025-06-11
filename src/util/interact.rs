@@ -144,6 +144,7 @@ pub fn reset_on_release_system(
         }
 }
 
+
 pub fn joint_drag_system(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
@@ -179,18 +180,22 @@ pub fn joint_drag_system(
     if selected_joints.is_empty() {
         return;
     }
+    let plane_y = 0.0;
 
-    for joint_wrapper in selected_joints.iter() {
-        if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
-
-            let pos = ray.origin + ray.direction * 10.0;
-            let new_pos = glam::Vec3::new(pos.x, pos.y, pos.z);
-            joint.position = Position::Vec3(new_pos);
-            move_joint_events.write(MoveJoint {
-                joint_id: joint_wrapper.joint_id,
-                new_position: Position::Vec3(new_pos),
-            });
+    let denom = ray.direction.y;
+    if denom.abs() > 1e-6 {
+        let t = (plane_y - ray.origin.y) / denom;
+        let intersection = ray.origin + ray.direction * t;
+    
+        for joint_wrapper in selected_joints.iter() {
+            if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
+                let new_pos = glam::Vec3::new(intersection.x, intersection.y, intersection.z);
+                joint.position = Position::Vec3(new_pos);
+                move_joint_events.write(MoveJoint {
+                    joint_id: joint_wrapper.joint_id,
+                    new_position: Position::Vec3(new_pos),
+                });
+            }
         }
     }
 }
-    

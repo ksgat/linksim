@@ -49,12 +49,11 @@ fn main() {
 
 fn setup_sim(mut commands: Commands) {
     let mut sim = Simulation::default();
-
     let joint_pos_a = Position::Vec3(glam::Vec3::new(0.0, 0.0, 0.0));
     let joint_pos_b = Position::Vec3(glam::Vec3::new(2.0, 0.0, 0.0));
-    let joint_pos_c = Position::Vec3(glam::Vec3::new(2.0, 2.0, 0.0));
-    let joint_pos_d = Position::Vec3(glam::Vec3::new(0.0, 2.0, 0.0));
-
+    let joint_pos_c = Position::Vec3(glam::Vec3::new(2.0, 0.0, 2.0));
+    let joint_pos_d = Position::Vec3(glam::Vec3::new(0.0, 0.0, 2.0));
+    
     // Create joints
     let joint_a = sim.joints.insert(Joint {
         position: joint_pos_a,
