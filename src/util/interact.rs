@@ -180,15 +180,27 @@ pub fn joint_drag_system(
     if selected_joints.is_empty() {
         return;
     }
-    let plane_y = 0.0;
 
-    let denom = ray.direction.y;
-    if denom.abs() > 1e-6 {
-        let t = (plane_y - ray.origin.y) / denom;
-        let intersection = ray.origin + ray.direction * t;
-    
-        for joint_wrapper in selected_joints.iter() {
-            if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
+    // Get camera's forward direction (negated because cameras look down -Z)
+    let camera_forward = -camera_transform.forward();
+    let plane_normal = camera_forward.normalize();
+
+    for joint_wrapper in selected_joints.iter() {
+        if let Some(joint) = sim_wrapper.sim.joints.get_mut(joint_wrapper.joint_id) {
+            // Get current joint position
+            let current_joint_pos = match &joint.position {
+                Position::Vec3(pos) => *pos,
+                // Handle other position types if needed
+                _ => continue,
+            };
+
+            let plane_distance = current_joint_pos.dot(glam::Vec3::new(plane_normal.x, plane_normal.y, plane_normal.z));
+
+            let denom = ray.direction.dot(plane_normal);
+            if denom.abs() > 1e-6 {
+                let t = (plane_distance - ray.origin.dot(plane_normal)) / denom;
+                let intersection = ray.origin + ray.direction * t;
+                
                 let new_pos = glam::Vec3::new(intersection.x, intersection.y, intersection.z);
                 joint.position = Position::Vec3(new_pos);
                 move_joint_events.write(MoveJoint {

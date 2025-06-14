@@ -13,6 +13,14 @@ use crate::util::interact::*;
 use crate::util::simulation::*;
 use crate::simcore::types::*;
 use crate::dsl::*;
+use crate::util::keybindings::*;
+
+
+#[derive(Resource, Default)]
+pub struct ListeningState {
+    current: Option<&'static str>,
+}
+
 
 #[derive(Resource, Default)]
 struct TextState {
@@ -44,7 +52,10 @@ fn main() {
         .insert_resource(TextState::default())
         .insert_resource(InputFocus::default())
         .insert_resource(JointState::default())
+        .insert_resource(ListeningState::default())
+        .insert_resource(KeyBindings::default())
         .add_systems(
+
             Startup,
             (
                 spawn_view_model,
@@ -67,6 +78,7 @@ fn main() {
             update_link_visuals.after(sim_step_system),
         ))
         .add_systems(EguiContextPass, ui_example_system)
+        .add_systems(EguiContextPass, keybindings_ui)
         .run();
 }
 
@@ -210,14 +222,15 @@ fn ui_example_system(
     mut input_focus: ResMut<InputFocus>,
     mut joint_state: ResMut<JointState>,
 
-) {
+) { 
     let ctx = contexts.ctx_mut();
     input_focus.egui_focused = ctx.wants_pointer_input() || ctx.wants_keyboard_input();
 
-    egui::SidePanel::left("my_panel").show(ctx, |ui| {
+    egui::Window::new("Ugoku!").show(contexts.ctx_mut(), |ui| {
         ui.label("world");
 
-        ui.add(egui::TextEdit::multiline(&mut text_state.content).code_editor());
+        ui.add(egui::TextEdit::multiline(&mut text_state.content).code_editor().hint_text("Enter text here")
+    );
         
         ui.horizontal(|ui| {
             ui.label("X:");
@@ -253,6 +266,59 @@ fn ui_example_system(
 }
 
 
+
+
+pub fn keybindings_ui(
+    mut contexts: EguiContexts,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut bindings: ResMut<KeyBindings>,
+    mut listen: ResMut<ListeningState>,
+) {
+    egui::Window::new("Keybindings").show(contexts.ctx_mut(), |ui| {
+        ui.label("Click a button, then press a new key.");
+
+        macro_rules! editable_binding {
+            ($label:expr, $field:ident) => {
+                ui.horizontal(|ui| {
+                    ui.label($label);
+                    let btn = ui.button(format!("{:?}", bindings.$field));
+                    if btn.clicked() {
+                        listen.current = Some(stringify!($field));
+                    }
+                });
+            };
+        }
+
+        editable_binding!("Pan Up", pan_up);
+        editable_binding!("Pan Down", pan_down);
+        editable_binding!("Pan Left", pan_left);
+        editable_binding!("Pan Right", pan_right);
+        editable_binding!("Orbit Left", orbit_left);
+        editable_binding!("Orbit Right", orbit_right);
+        editable_binding!("Zoom In", zoom_in);
+        editable_binding!("Zoom Out", zoom_out);
+        editable_binding!("Shift", shift);
+        // mouse bindings later...
+    });
+
+    if let Some(field) = listen.current {
+        for key in keys.get_just_pressed() {
+            match field {
+                "pan_up" => bindings.pan_up = *key,
+                "pan_down" => bindings.pan_down = *key,
+                "pan_left" => bindings.pan_left = *key,
+                "pan_right" => bindings.pan_right = *key,
+                "orbit_left" => bindings.orbit_left = *key,
+                "orbit_right" => bindings.orbit_right = *key,
+                "zoom_in" => bindings.zoom_in = *key,
+                "zoom_out" => bindings.zoom_out = *key,
+                "shift" => bindings.shift = *key,
+                _ => {}
+            }
+            listen.current = None;
+        }
+    }
+}
 fn setup_sim_from_dsl(dsl_code: &str) -> Result<Simulation, Box<dyn std::error::Error>> {
     // Parse DSL to AST
     let program = UgokuParser::parse_dsl(dsl_code)?;

@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
 };
 use std::f32::consts::FRAC_PI_2;
-
+use crate::util::keybindings::*;
 
 use crate::util::constants::*;
 
@@ -96,6 +96,11 @@ pub fn update_camera_mode_text(
         *text = Text::new(camera_mode_indicator.0.clone());
     }
 }
+fn get_axis(keys: &ButtonInput<KeyCode>, positive: KeyCode, negative: KeyCode) -> f32 {
+    let pos = if keys.pressed(positive) { 1.0 } else { 0.0 };
+    let neg = if keys.pressed(negative) { 1.0 } else { 0.0 };
+    pos - neg
+}
 
 pub fn camera_control_system(
     mut cameras: Query<(&mut Transform, &mut Projection, &mut CameraController), With<Player>>,
@@ -105,6 +110,7 @@ pub fn camera_control_system(
     time: Res<Time>,
     windows: Query<&Window>,
     input_focus: Res<InputFocus>, // Add InputFocus resource
+    bindings: Res<KeyBindings>,
 ) {
     // Skip if EGUI is focused
     if input_focus.egui_focused {
@@ -117,45 +123,23 @@ pub fn camera_control_system(
 
     
     let dt = time.delta_secs();
+    let input_dir = Vec2::new(
+        get_axis(&keys, bindings.pan_right, bindings.pan_left),
+        get_axis(&keys, bindings.pan_up, bindings.pan_down)
+    ) * PAN_SPEED * dt;
     
-    if controller.mode == CameraMode::Orthographic2D {
-        let mut pan_move = Vec3::ZERO;
-        if keys.pressed(PAN_UP_KEY) {
-            pan_move.z -= PAN_SPEED * dt; 
+    let pan_move = match controller.mode {
+        CameraMode::Orthographic2D => {
+            Vec3::new(input_dir.x, 0.0, -input_dir.y) // Z is "up" in 2D
         }
-        if keys.pressed(PAN_DOWN_KEY) {
-            pan_move.z += PAN_SPEED * dt;
+        _ => {
+            transform.right() * input_dir.x + transform.forward() * input_dir.y
         }
-        if keys.pressed(PAN_RIGHT_KEY) {
-            pan_move.x += PAN_SPEED * dt;
-        }
-        if keys.pressed(PAN_LEFT_KEY) {
-            pan_move.x -= PAN_SPEED * dt;
-        }
-        controller.pan_offset += pan_move;
-    } else {
-        let forward = transform.forward();
-        let right = transform.right();
-        let mut pan_move = Vec3::ZERO;
+    };
     
-        if keys.pressed(PAN_UP_KEY) {
-            pan_move += forward * PAN_SPEED * dt;
-        }
-        if keys.pressed(PAN_DOWN_KEY) {
-            pan_move -= forward * PAN_SPEED * dt;
-        }
-        if keys.pressed(PAN_RIGHT_KEY) {
-            pan_move += right * PAN_SPEED * dt;
-        }
-        if keys.pressed(PAN_LEFT_KEY) {
-            pan_move -= right * PAN_SPEED * dt;
-        }
-        
-        pan_move.y = 0.0;
-        controller.pan_offset += pan_move;
-    }
+    controller.pan_offset += pan_move;
     
-    if mouse_buttons.pressed(MOUSE_PAN_BUTTON) && keys.pressed(SHIFT){
+    if mouse_buttons.pressed(bindings.mouse_pan) && keys.pressed(bindings.shift){
         let total_delta = mouse_motion.delta;
         match controller.mode {
             CameraMode::Orthographic3D => {
@@ -175,16 +159,16 @@ pub fn camera_control_system(
     let mut yaw_delta = 0.0;
     let mut pitch_delta = 0.0;
 
-    if mouse_buttons.pressed(MOUSE_ORBIT_BUTTON) && keys.pressed(SHIFT){
+    if mouse_buttons.pressed(bindings.mouse_orbit) && keys.pressed(bindings.shift){
         yaw_delta += -mouse_motion.delta.x * controller.sensitivity.x;
         if controller.mode != CameraMode::Orthographic2D {
             pitch_delta += -mouse_motion.delta.y * controller.sensitivity.y;
         }
     }
-    if keys.pressed(ORBIT_LEFT_KEY) {
+    if keys.pressed(bindings.orbit_left) {
         yaw_delta += 1.0 * dt;
     }
-    if keys.pressed(ORBIT_RIGHT_KEY) {
+    if keys.pressed(bindings.orbit_right) {
         yaw_delta -= 1.0 * dt;
     }
 
@@ -198,20 +182,20 @@ pub fn camera_control_system(
     // Zoom with +/- keys
     match controller.mode {
         CameraMode::Perspective3D => {
-            if keys.pressed(ZOOM_IN_KEY) {
+            if keys.pressed(bindings.zoom_in) {
                 controller.orbit_radius -= ZOOM_SPEED * dt;
             }
-            if keys.pressed(ZOOM_OUT_KEY) {
+            if keys.pressed(bindings.zoom_out) {
                 controller.orbit_radius += ZOOM_SPEED * dt;
             }
             controller.orbit_radius = controller.orbit_radius.clamp(MIN_ZOOM, MAX_ZOOM);
         }
         CameraMode::Orthographic3D | CameraMode::Orthographic2D => {
             if let Projection::Orthographic(ref mut ortho) = *projection {
-                if keys.pressed(ZOOM_IN_KEY) {
+                if keys.pressed(bindings.zoom_in) {
                     ortho.scale -= ZOOM_SPEED * dt;
                 }
-                if keys.pressed(ZOOM_OUT_KEY) {
+                if keys.pressed(bindings.zoom_out) {
                     ortho.scale += ZOOM_SPEED * dt;
                 }
                 ortho.scale = ortho.scale.clamp(MIN_ZOOM, MAX_ZOOM);

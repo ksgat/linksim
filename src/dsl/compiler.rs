@@ -1,5 +1,6 @@
 use crate::dsl::ast::*;
 use crate::simcore::types::*;
+use crate::simcore::bindings::*;
 use std::collections::HashMap;
 use glam::Vec3;
 
@@ -12,6 +13,7 @@ impl DslCompiler {
         
         // First pass: Create all joints
         for joint_decl in &program.joints {
+
             let position = Position::Vec3(Vec3::new(
                 joint_decl.position[0],
                 joint_decl.position[1],
@@ -39,7 +41,7 @@ impl DslCompiler {
             let link_id = sim.links.insert(Link {
                 joints: vec![*joint_a_id, *joint_b_id],
                 rigid: true,
-            });
+            });a
             
             // Update joint connections
             sim.joints.get_mut(*joint_a_id).unwrap().connected_links.push(link_id);
@@ -53,44 +55,15 @@ impl DslCompiler {
         for constraint_decl in &program.constraints {
             match constraint_decl {
                 ConstraintDecl::Distance { a, b, value } => {
-                    let joint_a_id = joint_name_to_id.get(a)
-                        .ok_or_else(|| format!("Joint '{}' not found", a))?;
-                    let joint_b_id = joint_name_to_id.get(b)
-                        .ok_or_else(|| format!("Joint '{}' not found", b))?;
-                    
-                    sim.constraints.push(Box::new(DistanceConstraint {
-                        joint_a: *joint_a_id,
-                        joint_b: *joint_b_id,
-                        target_distance: *value,
-                    }));
+                    apply_distance(&mut sim, &joint_name_to_id, a, b, *value)?;
                 }
                 ConstraintDecl::Fixed { joints } => {
-                    for joint_name in joints {
-                        let joint_id = joint_name_to_id.get(joint_name)
-                            .ok_or_else(|| format!("Joint '{}' not found", joint_name))?;
-                        
-                        let target_position = sim.joints.get(*joint_id).unwrap().position;
-                        sim.constraints.push(Box::new(FixedPositionConstraint {
-                            joint_id: *joint_id,
-                            target_position,
-                        }));
-                    }
+                    apply_fixed(&mut sim, &joint_name_to_id, joints)?;
                 }
                 ConstraintDecl::Plane { joints, normal, point } => {
-                    let plane_point = point.unwrap_or(Vec3::ZERO);
-                    
-                    for joint_name in joints {
-                        let joint_id = joint_name_to_id.get(joint_name)
-                            .ok_or_else(|| format!("Joint '{}' not found", joint_name))?;
-                        
-                        sim.constraints.push(Box::new(PlaneConstraint {
-                            joint_id: *joint_id,
-                            normal: *normal,
-                            plane_point,
-                        }));
-                    }
-                 }
-             }
+                    apply_plane(&mut sim, &joint_name_to_id, joints, *normal, *point)?;
+                }
+        }
         }
         
         println!("DSL Compilation complete:");
