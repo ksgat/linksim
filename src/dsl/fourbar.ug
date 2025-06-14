@@ -1,0 +1,30 @@
+
+#some sort of like config header? for units, maybe some sort of constants?
+#idk gonna leave this out rn, i think its a more front facing thing
+units = millimeters
+
+
+sim fourbar{
+    
+    #declare joints in this like friendly sort of manner
+   joint a(2,0)
+   joint b(2,2)
+   joint c(0,2)
+   joint d(0,0)
+
+
+    link link_ab(a,b)
+    link link_bc(b,c)
+    link link_cd(cd)
+    link link_da(d,a)
+    #distance is between joints, not links. its a consisteancy thing, ill have link constraints maybe but rn constraints model the relationship between joints
+    distance(a,b, 2)
+    distance(b,c, 2)
+    distance(c,d, 2)
+    distance(d,a, 2)
+    #fixed can take a tuple/array of joints, because its one relationship basically, just saying it needs to stay sitll, so you can do at once 
+    fixed((a,b))
+    #same here, its one constraint so yea
+    plane((a,b,c,d), X)
+
+}

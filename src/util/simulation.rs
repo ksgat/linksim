@@ -6,11 +6,22 @@ use crate::simcore::types::*;
 
 //render
 pub fn render_sim(
-    sim_wrapper: Res<SimWrapper>,
+    sim_wrapper: ResMut<SimWrapper>,
+    joint_query: Query<Entity, With<JointWrapper>>,
+    link_query: Query<Entity, With<LinkWrapper>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    
 ) {
+
+    for entity in joint_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in link_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
     let sim = &sim_wrapper.sim;
 
     let joint_material = materials.add(StandardMaterial {

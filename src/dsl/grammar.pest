@@ -1,0 +1,41 @@
+file = { SOI ~ program ~ EOI }
+
+program = { "sim" ~ identifier ~ "{" ~ statement* ~ "}" }
+
+statement = {
+    joint_decl |
+    link_decl |
+    constraint_decl
+}
+
+joint_decl = { "joint" ~ identifier ~ "(" ~ number ~ "," ~ number ~ ("," ~ number)? ~ ")" }
+
+link_decl = { "link" ~ identifier ~ "(" ~ identifier ~ "," ~ identifier ~ ")" }
+
+constraint_decl = {
+    distance_constraint |
+    fixed_constraint |
+    plane_constraint
+}
+
+distance_constraint = { "distance" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ number ~ ")" }
+
+fixed_constraint = { "fixed" ~ "(" ~ identifier_list ~ ")" }
+
+plane_constraint = { "plane" ~ "(" ~ "(" ~ identifier_list ~ ")" ~ "," ~ axis ~ ")" }
+
+identifier_list = { identifier ~ ("," ~ identifier)* }
+
+axis = { "X" | "Y" | "Z" }
+
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+number = @{
+    "-"? ~ (
+        "0" |
+        (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ) ~ ("." ~ ASCII_DIGIT+)?
+}
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+

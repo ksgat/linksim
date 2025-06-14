@@ -1,12 +1,19 @@
 use bevy::{
     input::mouse::AccumulatedMouseMotion, 
-    render::camera::ScalingMode,
+    render::camera::{ScalingMode},
     prelude::*,
 };
 use std::f32::consts::FRAC_PI_2;
 
 
 use crate::util::constants::*;
+
+
+#[derive(Resource, Default)]
+pub struct InputFocus {
+    pub egui_focused: bool,
+}
+
 
 /// Rendering components
 #[derive(Debug, Component)]
@@ -90,7 +97,6 @@ pub fn update_camera_mode_text(
     }
 }
 
-
 pub fn camera_control_system(
     mut cameras: Query<(&mut Transform, &mut Projection, &mut CameraController), With<Player>>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -98,10 +104,17 @@ pub fn camera_control_system(
     mouse_motion: Res<AccumulatedMouseMotion>,
     time: Res<Time>,
     windows: Query<&Window>,
+    input_focus: Res<InputFocus>, // Add InputFocus resource
 ) {
+    // Skip if EGUI is focused
+    if input_focus.egui_focused {
+        return;
+    }
+
     let Ok((mut transform, mut projection, mut controller)) = cameras.single_mut() else {
         return;
     };
+
     
     let dt = time.delta_secs();
     
@@ -266,6 +279,4 @@ pub fn camera_control_system(
         }
     }
 }
-
-
 

@@ -3,7 +3,7 @@ use bevy::{
     prelude::*, 
     render::view::RenderLayers,
 };
-
+use bevy_infinite_grid::*;
 use std::f32::consts::FRAC_PI_2;
 
 use crate::util::camera::CameraModeText;
@@ -24,39 +24,11 @@ pub fn spawn_world_model(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
     
-    //let cube: Handle<Mesh> = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
-    //let cylinder = meshes.add(Cylinder::new(0.5, 1.0).mesh().resolution(50));
 
-    let material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        ..Default::default()
-    });
     
-    commands.spawn((
-        Mesh3d(floor), 
-        MeshMaterial3d(material.clone())
-    ));
-    /*
-    commands.spawn((
-        Mesh3d(cube.clone()),
-        MeshMaterial3d(material.clone()),
-        Transform::from_xyz(0.0, 0.25, -3.0),
-    ));
-    commands.spawn((
-        Mesh3d(cube),
-        MeshMaterial3d(material.clone()),
-        Transform::from_xyz(0.75, 1.75, 0.0),
-    ));
-    commands.spawn((
-        Mesh3d(cylinder),
-        MeshMaterial3d(material),
-        Transform::from_xyz(1.0, 1.75, 0.0),
-    ));
-     */
-    
-    // Add XYZ arrows
+
+    //XYZ arrows
     let arrow_length = 1.0;
     let arrow_thickness = 0.05;
 
@@ -97,6 +69,9 @@ pub fn spawn_world_model(
         Transform::from_translation(Vec3::new(0.0, 0.0, arrow_length / 2.0))
             .with_rotation(Quat::from_rotation_x(FRAC_PI_2)),
     ));
+
+    commands.spawn(InfiniteGridBundle::default());
+
 
 }
 

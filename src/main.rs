@@ -1,25 +1,49 @@
 pub mod util;
 pub mod simcore;
-
+pub mod dsl;
 
 use bevy::prelude::*;
-use crate::util::constants::SimWrapper;
+use bevy_egui::{egui, EguiContextPass, EguiContexts, EguiPlugin};
+use bevy_infinite_grid::InfiniteGridPlugin;
+
+use crate::util::constants::*;
 use crate::util::camera::*;
 use crate::util::world::*;
 use crate::util::interact::*;
 use crate::util::simulation::*;
-
 use crate::simcore::types::*;
+use crate::dsl::*;
 
+#[derive(Resource, Default)]
+struct TextState {
+    content: String,
+}
+#[derive(Resource, Default)]
+struct JointState {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Event)]
+pub struct ReplaceSim(pub Simulation);
 
 
 fn main() {
     App::new()
+        
         .add_event::<PickedJoint>()
-        .add_event::<MoveJoint>()
+        .add_event::<MoveJoint>()        
         .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin {
+            enable_multipass_for_primary_context: true,
+        })
+        .add_plugins(InfiniteGridPlugin)
         .insert_resource(CameraModeIndicator::default())
         .insert_resource(SelectedJoint::default())
+        .insert_resource(TextState::default())
+        .insert_resource(InputFocus::default())
+        .insert_resource(JointState::default())
         .add_systems(
             Startup,
             (
@@ -42,6 +66,7 @@ fn main() {
             update_joint_visuals.after(sim_step_system),
             update_link_visuals.after(sim_step_system),
         ))
+        .add_systems(EguiContextPass, ui_example_system)
         .run();
 }
 
@@ -169,3 +194,72 @@ fn setup_sim(mut commands: Commands) {
 }
 
 
+
+//f
+
+fn ui_example_system(
+    mut contexts: EguiContexts,
+    mut sim_wrapper: ResMut<SimWrapper>,
+    joint_query: Query<Entity, With<JointWrapper>>,
+    link_query: Query<Entity, With<LinkWrapper>>,
+
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+    mut text_state: ResMut<TextState>,
+    mut input_focus: ResMut<InputFocus>,
+    mut joint_state: ResMut<JointState>,
+
+) {
+    let ctx = contexts.ctx_mut();
+    input_focus.egui_focused = ctx.wants_pointer_input() || ctx.wants_keyboard_input();
+
+    egui::SidePanel::left("my_panel").show(ctx, |ui| {
+        ui.label("world");
+
+        ui.add(egui::TextEdit::multiline(&mut text_state.content).code_editor());
+        
+        ui.horizontal(|ui| {
+            ui.label("X:");
+            ui.add(egui::DragValue::new(&mut joint_state.x));
+            ui.label("Y:");
+            ui.add(egui::DragValue::new(&mut joint_state.y));
+            ui.label("Z:");
+            ui.add(egui::DragValue::new(&mut joint_state.z));
+        });
+        
+        if ui.button("Do Something").clicked() {
+            match setup_sim_from_dsl(text_state.content.as_str()) {
+                Ok(new_sim) => {
+                    println!("Successfully created simulation with {} joints", new_sim.joints.len());
+                    sim_wrapper.sim = new_sim;
+                    render_sim(
+                        sim_wrapper,
+                        joint_query,
+                        link_query,
+                        commands,
+                        meshes,
+                        materials,
+                        
+                    );
+
+                },
+                Err(e) => {
+                    eprintln!("Error parsing DSL: {}", e);
+                }
+            }
+        }
+    });
+}
+
+
+fn setup_sim_from_dsl(dsl_code: &str) -> Result<Simulation, Box<dyn std::error::Error>> {
+    // Parse DSL to AST
+    let program = UgokuParser::parse_dsl(dsl_code)?;
+    
+    // Compile AST to simulation
+    let sim = DslCompiler::compile_to_simulation(program)
+        .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+    
+    Ok(sim)
+}
