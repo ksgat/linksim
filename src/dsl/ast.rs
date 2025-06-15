@@ -21,6 +21,8 @@ pub enum ConstraintDecl {
     Distance { a: String, b: String, value: f32 },
     Fixed { joints: Vec<String> },
     Plane { joints: Vec<String>, normal: Vec3, point: Option<Vec3> },
+    PrismaticVector { joints: Vec<String>, axis: Vec3, origin: Vec3 },
+    PrismaticLink { joints: Vec<String>, link: String, origin: Vec3 },
 }
 impl ConstraintDecl {
     pub fn constraint_type(&self) -> &str {
@@ -28,6 +30,8 @@ impl ConstraintDecl {
             ConstraintDecl::Distance { .. } => "Distance",
             ConstraintDecl::Fixed { .. } => "Fixed",
             ConstraintDecl::Plane { .. } => "Plane",
+            ConstraintDecl::PrismaticVector { .. } => "PrismaticVector",
+            ConstraintDecl::PrismaticLink { .. } => "PrismaticLink",
         }
     }
 }

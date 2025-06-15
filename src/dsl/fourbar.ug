@@ -1,30 +1,41 @@
 
 #some sort of like config header? for units, maybe some sort of constants?
 #idk gonna leave this out rn, i think its a more front facing thing
+
 units = millimeters
+
 
 
 sim fourbar{
     
-    #declare joints in this like friendly sort of manner
-   joint a(2,0)
-   joint b(2,2)
-   joint c(0,2)
-   joint d(0,0)
+	joint a(2,0,0)
+	joint b(2,2,0)
+	joint c(0,2,0)
+	joint d(0,0,0)
 
 
-    link link_ab(a,b)
+	link link_ab(a,b)
     link link_bc(b,c)
-    link link_cd(cd)
+    link link_cd(c,d)
     link link_da(d,a)
-    #distance is between joints, not links. its a consisteancy thing, ill have link constraints maybe but rn constraints model the relationship between joints
     distance(a,b, 2)
     distance(b,c, 2)
     distance(c,d, 2)
     distance(d,a, 2)
-    #fixed can take a tuple/array of joints, because its one relationship basically, just saying it needs to stay sitll, so you can do at once 
-    fixed((a,b))
-    #same here, its one constraint so yea
-    plane((a,b,c,d), X)
+    fixed(d,a)
+ 
+    plane((a,b,c,d), Z)
 
+}
+
+sim slider_mechanism {
+    joint base_start (0.0, 0.0, 0.0)
+    joint base_end (10.0, 0.0, 0.0)
+    joint slider (5.0, 0.0, 0.0)
+    
+    link rail (base_start, base_end)
+    
+    fixed(base_start, base_end)
+    
+    prismatic_link((slider), rail, ((0.0, 0.0, 0.0)))
 }

@@ -25,7 +25,7 @@ pub enum JointType {
     Revolute,
     Slider { axis: Vec2 },
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Link {
     pub joints: Vec<JointId>,
     pub rigid: bool,
@@ -103,3 +103,21 @@ pub struct PlaneConstraint {
     pub normal: Vec3,
     pub plane_point: Vec3,
 }
+
+
+
+#[derive(Debug, Clone)]
+pub struct PrismaticConstraintVector {
+    pub joint_id: JointId,
+    pub axis: Vec3, //normalize the jawn
+    pub origin: Vec3,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrismaticConstraintLink {
+    pub joint_id: JointId,
+    pub link_id: LinkId, // Normalize the axis vector
+    pub origin: Vec3,
+
+}
+

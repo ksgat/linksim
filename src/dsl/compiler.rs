@@ -41,7 +41,7 @@ impl DslCompiler {
             let link_id = sim.links.insert(Link {
                 joints: vec![*joint_a_id, *joint_b_id],
                 rigid: true,
-            });a
+            });
             
             // Update joint connections
             sim.joints.get_mut(*joint_a_id).unwrap().connected_links.push(link_id);
@@ -51,7 +51,7 @@ impl DslCompiler {
 
         }
         
-        // Third pass: Create explicit constraints
+        // Third pass: Create explicit constraints type shittt
         for constraint_decl in &program.constraints {
             match constraint_decl {
                 ConstraintDecl::Distance { a, b, value } => {
@@ -62,6 +62,12 @@ impl DslCompiler {
                 }
                 ConstraintDecl::Plane { joints, normal, point } => {
                     apply_plane(&mut sim, &joint_name_to_id, joints, *normal, *point)?;
+                }
+                ConstraintDecl::PrismaticVector { joints, axis, origin } => {
+                    apply_prismatic_vector(&mut sim, &joint_name_to_id, joints, *axis, *origin)?;
+                }
+                ConstraintDecl::PrismaticLink { joints, link, origin } => {
+                    apply_prismatic_link(&mut sim, &joint_name_to_id, &link_name_to_id, joints, link, *origin)?;
                 }
         }
         }

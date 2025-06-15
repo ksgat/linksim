@@ -15,7 +15,9 @@ link_decl = { "link" ~ identifier ~ "(" ~ identifier ~ "," ~ identifier ~ ")" }
 constraint_decl = {
     distance_constraint |
     fixed_constraint |
-    plane_constraint
+    plane_constraint |
+    prismatic_constraint_vector |
+    prismatic_constraint_link
 }
 
 distance_constraint = { "distance" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ number ~ ")" }
@@ -24,11 +26,20 @@ fixed_constraint = { "fixed" ~ "(" ~ identifier_list ~ ")" }
 
 plane_constraint = { "plane" ~ "(" ~ "(" ~ identifier_list ~ ")" ~ "," ~ axis ~ ")" }
 
+
+//joint(s) to be prismatically locked, arbitrary vector to move along, orgin
+prismatic_constraint_vector = { "prismatic_vector" ~ "(" ~ identifier_list ~ "," ~ axis ~ "," ~ vec3 ~ ")" }
+//joint(s) to be prismatically locked, link to move along, orgin
+prismatic_constraint_link = { "prismatic_link" ~ "(" ~ "("  ~ identifier_list ~ ")" ~ "," ~ identifier ~ "," ~ "(" ~ vec3 ~ ")" ~")" }
+
 identifier_list = { identifier ~ ("," ~ identifier)* }
 
 axis = { "X" | "Y" | "Z" }
 
 identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+vec3 = { "(" ~ number ~ "," ~ number ~ "," ~ number ~ ")" }
+
 
 number = @{
     "-"? ~ (

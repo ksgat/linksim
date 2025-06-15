@@ -66,3 +66,52 @@ pub fn apply_plane(
 
     Ok(())
 }
+//fix this broken as hell
+pub fn apply_prismatic_link(
+    sim: &mut Simulation,
+    joint_name_to_id: &HashMap<String, JointId>,
+    link_name_to_id: &HashMap<String, LinkId>,
+    joints: &[String],
+    link_name: &str,
+    origin: Vec3,
+) -> Result<(), String> {
+    let link_id = link_name_to_id.get(link_name)
+        .ok_or_else(|| format!("Link '{}' not found", link_name))?;
+
+    for joint_name in joints {
+        let joint_id = joint_name_to_id.get(joint_name)
+            .ok_or_else(|| format!("Joint '{}' not found", joint_name))?;
+
+        sim.constraints.push(Box::new(PrismaticConstraintLink {
+            joint_id: *joint_id,
+            link_id: *link_id,
+            origin: origin,
+        }));
+    }
+
+    Ok(()) 
+
+
+}
+
+
+pub fn apply_prismatic_vector(
+    sim: &mut Simulation,
+    joint_name_to_id: &HashMap<String, JointId>,
+    joints: &[String],
+    axis: Vec3,
+    origin: Vec3,
+) -> Result<(), String> {
+    for joint_name in joints {
+        let joint_id = joint_name_to_id.get(joint_name)
+            .ok_or_else(|| format!("Joint '{}' not found", joint_name))?;
+
+        sim.constraints.push(Box::new(PrismaticConstraintVector {
+            joint_id: *joint_id,
+            axis: axis.normalize(),
+            origin,
+        }));
+    }
+
+    Ok(())
+}

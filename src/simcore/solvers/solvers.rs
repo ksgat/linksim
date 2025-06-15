@@ -1,5 +1,5 @@
 use crate::simcore::types::*; // Add Position
-
+use glam::Vec3;
 use std::any::Any;
 
 impl Simulation {
@@ -85,6 +85,7 @@ impl Constraint for DistanceConstraint {
         self
     }
 }
+
 impl Constraint for PlaneConstraint {
     fn apply(&self, sim: &mut Simulation) {
         if let Some(joint) = sim.joints.get_mut(self.joint_id) {
@@ -113,3 +114,82 @@ impl Constraint for PlaneConstraint {
     }
 }
 
+impl Constraint for PrismaticConstraintVector {
+    fn apply(&self, sim: &mut Simulation) {
+        if let Some(joint) = sim.joints.get_mut(self.joint_id) {
+            let axis_dir = self.axis.normalize();
+            let joint_pos = joint.position.as_vec3();
+            let to_joint = joint_pos - self.origin;
+            let proj_length = to_joint.dot(axis_dir);
+            let projected_pos = self.origin + axis_dir * proj_length;
+            joint.position = Position::Vec3(projected_pos);
+        }
+    }
+
+    fn is_satisfied(&self, sim: &Simulation) -> bool {
+        if let Some(joint) = sim.joints.get(self.joint_id) {
+            let axis_dir = self.axis.normalize();
+            let joint_pos = joint.position.as_vec3();
+            let to_joint = joint_pos - self.origin;
+            let proj_length = to_joint.dot(axis_dir);
+            let projected_pos = self.origin + axis_dir * proj_length;
+            let dist = (joint_pos - projected_pos).length();
+            dist < 1e-6
+        } else {
+            false
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Constraint for PrismaticConstraintLink {
+    fn apply(&self, sim: &mut Simulation) {
+        // Get the axis from the link
+        let axis_vec = match self.get_link_axis(sim) {
+            Some(axis) => axis,
+            None => return,
+        };
+        
+        // Apply the constraint using the calculated axis
+        let prismatic_vec = PrismaticConstraintVector {
+            joint_id: self.joint_id,
+            origin: self.origin,
+            axis: axis_vec,
+        };
+        prismatic_vec.apply(sim);
+    }
+    fn is_satisfied(&self, sim: &Simulation) -> bool {
+        // Get the axis from the link (same logic as apply)
+        let axis_vec = match self.get_link_axis(sim) {
+            Some(axis) => axis,
+            None => return false,
+        };
+        
+        // Create the equivalent PrismaticConstraintVector and check if it's satisfied
+        let prismatic_vec = PrismaticConstraintVector {
+            joint_id: self.joint_id,
+            origin: self.origin,
+            axis: axis_vec,
+        };
+        prismatic_vec.is_satisfied(sim)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl PrismaticConstraintLink {
+    fn get_link_axis(&self, sim: &Simulation) -> Option<Vec3> {
+        let link = sim.links.get(self.link_id)?;
+        if link.joints.len() != 2 {
+            return None;
+        }
+        let joint_a = sim.joints.get(link.joints[0])?;
+        let joint_b = sim.joints.get(link.joints[1])?;
+        Some(joint_b.position.as_vec3() - joint_a.position.as_vec3())
+    }
+}

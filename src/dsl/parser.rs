@@ -155,6 +155,55 @@ fn parse_constraint_decl(pair: Pair<Rule>) -> Result<ConstraintDecl, Box<dyn std
             
             Ok(ConstraintDecl::Plane { joints, normal, point })
         }
+        Rule::prismatic_constraint_vector => {
+            let mut inner = constraint.into_inner();
+            let identifier_list = inner.next().unwrap();
+            let joints = parse_identifier_list(identifier_list);
+            
+            // Parse the axis (either axis or Vec3)
+            let axis_param = inner.next().unwrap();
+            let axis = match axis_param.as_str() {
+                "X" => Vec3::X,
+                "Y" => Vec3::Y,
+                "Z" => Vec3::Z,
+                _ => {
+                    // Parse as Vec3 tuple
+                    let mut vec_inner = axis_param.into_inner();
+                    let x: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    let y: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    let z: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    Vec3::new(x, y, z)
+                }
+            };
+            
+            // Parse the origin point
+            let origin_param = inner.next().unwrap();
+            let mut vec_inner = origin_param.into_inner();
+            let x: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let y: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let z: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let origin = Vec3::new(x, y, z);
+            
+            Ok(ConstraintDecl::PrismaticVector { joints, axis, origin })
+        }
+        Rule::prismatic_constraint_link => {
+            let mut inner = constraint.into_inner();
+            let identifier_list = inner.next().unwrap();
+            let joints = parse_identifier_list(identifier_list);
+            
+            // Parse the link name
+            let link_name = inner.next().unwrap().as_str().to_string();
+            
+            // Parse the origin point
+            let origin_param = inner.next().unwrap();
+            let mut vec_inner = origin_param.into_inner();
+            let x: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let y: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let z: f32 = vec_inner.next().unwrap().as_str().parse()?;
+            let origin = Vec3::new(x, y, z);
+            
+            Ok(ConstraintDecl::PrismaticLink { joints, link: link_name, origin })
+        }
         _ => Err("Unknown constraint type".into())
     }
 }
