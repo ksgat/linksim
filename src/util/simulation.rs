@@ -2,6 +2,7 @@
 use bevy::prelude::*;
 use crate::util::interact::MoveJoint;
 use crate::util::constants::*;
+use crate::util::keybindings::KeyBindings;
 use crate::simcore::types::*;
 
 //render
@@ -139,13 +140,14 @@ pub fn update_joint_visuals(
 
 pub fn sim_step_system(
     mut wrapper: ResMut<SimWrapper>,
+    bindings: Res<KeyBindings>,
     move_events: EventReader<MoveJoint>,
 
 
 ) {
     // Only run simulation step if there were joint movements
     if !move_events.is_empty() {
-        wrapper.sim.step(0.0, 40);
+        wrapper.sim.step(0.0, bindings.iterations_per_time_step);
     }
 }
 

@@ -69,6 +69,10 @@ impl DslCompiler {
                 ConstraintDecl::PrismaticLink { joints, link, origin } => {
                     apply_prismatic_link(&mut sim, &joint_name_to_id, &link_name_to_id, joints, link, *origin)?;
                 }
+                ConstraintDecl::FixedAngle { joint_a, pivot, joint_c, angle } => {
+                    apply_fixed_angle(&mut sim, &joint_name_to_id, joint_a, pivot, joint_c, *angle)?;
+                }
+                
         }
         }
         

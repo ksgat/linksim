@@ -1,5 +1,6 @@
-use crate::simcore::types::*; // Add Position
-use glam::Vec3;
+use crate::simcore::types::*; use bevy::render::render_resource::encase::vector;
+// Add Position
+use glam::{Vec3, Quat};
 use std::any::Any;
 
 impl Simulation {
@@ -191,5 +192,69 @@ impl PrismaticConstraintLink {
         let joint_a = sim.joints.get(link.joints[0])?;
         let joint_b = sim.joints.get(link.joints[1])?;
         Some(joint_b.position.as_vec3() - joint_a.position.as_vec3())
+    }
+}
+//broken as shit bro
+impl Constraint for FixedAngleConstraint {
+    fn apply(&self, sim: &mut Simulation) {
+        let pos_a = sim.joints[self.joint_a].position.as_vec3();
+        let pos_b = sim.joints[self.pivot].position.as_vec3();
+        let pos_c = sim.joints[self.joint_c].position.as_vec3();
+
+        let vec_ab = pos_a - pos_b;
+        let vec_cb = pos_c - pos_b;
+
+        if vec_ab.length() < 1e-6 || vec_cb.length() < 1e-6 {
+            return; 
+        }
+
+        let n_ab = vec_ab.normalize();
+        let n_cb = vec_cb.normalize();
+
+        let dot = n_ab.dot(n_cb).clamp(-1.0, 1.0);
+        let current_angle = dot.acos();
+        let error = current_angle - self.angle;
+
+        if error.abs() < 1e-6 {
+            return;
+        }
+
+        let axis = n_ab.cross(n_cb);
+        if axis.length_squared() < 1e-12 {
+            return;
+        }
+
+        let correction_strength = 0.05;
+        let half_angle = error * 0.5 * correction_strength;
+        let axis = axis.normalize();
+
+        let rot_a = Quat::from_axis_angle(axis, -half_angle);
+        let rot_c = Quat::from_axis_angle(axis,  half_angle);
+
+        let new_ab = rot_a * vec_ab;
+        let new_cb = rot_c * vec_cb;
+
+        sim.joints[self.joint_a].position = Position::Vec3(pos_b + new_ab);
+        sim.joints[self.joint_c].position = Position::Vec3(pos_b + new_cb);
+    }
+
+    fn is_satisfied(&self, sim: &Simulation) -> bool {
+        let pos_a = sim.joints[self.joint_a].position.as_vec3();
+        let pos_b = sim.joints[self.pivot].position.as_vec3();
+        let pos_c = sim.joints[self.joint_c].position.as_vec3();
+
+        let vec_ab = pos_a - pos_b;
+        let vec_cb = pos_c - pos_b;
+
+        if vec_ab.length() < 1e-6 || vec_cb.length() < 1e-6 {
+            return true;
+        }
+
+        let angle = vec_ab.normalize().angle_between(vec_cb.normalize());
+        (angle - self.angle).abs() < 1e-5
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

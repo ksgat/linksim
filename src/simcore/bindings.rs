@@ -66,7 +66,7 @@ pub fn apply_plane(
 
     Ok(())
 }
-//fix this broken as hell
+
 pub fn apply_prismatic_link(
     sim: &mut Simulation,
     joint_name_to_id: &HashMap<String, JointId>,
@@ -115,3 +115,33 @@ pub fn apply_prismatic_vector(
 
     Ok(())
 }
+pub fn apply_fixed_angle(
+    sim: &mut Simulation,
+    joint_name_to_id: &HashMap<String, JointId>,
+    joint_a: &str,
+    pivot: &str,
+    joint_c: &str,
+    angle: f32,
+) -> Result<(), String> {
+    let joint_a_id = joint_name_to_id
+        .get(joint_a)
+        .ok_or_else(|| format!("Joint '{}' not found", joint_a))?;
+
+    let pivot_id = joint_name_to_id
+        .get(pivot)
+        .ok_or_else(|| format!("Pivot joint '{}' not found", pivot))?;
+
+    let joint_c_id = joint_name_to_id
+        .get(joint_c)
+        .ok_or_else(|| format!("Joint '{}' not found", joint_c))?;
+
+    sim.constraints.push(Box::new(FixedAngleConstraint {
+        joint_a: *joint_a_id,
+        pivot: *pivot_id,
+        joint_c: *joint_c_id,
+        angle,
+    }));
+
+    Ok(())
+}
+

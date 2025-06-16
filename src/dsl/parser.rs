@@ -204,7 +204,42 @@ fn parse_constraint_decl(pair: Pair<Rule>) -> Result<ConstraintDecl, Box<dyn std
             
             Ok(ConstraintDecl::PrismaticLink { joints, link: link_name, origin })
         }
-        _ => Err("Unknown constraint type".into())
+        Rule::fixed_constraint_angle => {
+            let mut inner = constraint.into_inner();
+            
+            let joint_a = inner.next().unwrap().as_str().to_string();
+            let pivot   = inner.next().unwrap().as_str().to_string();
+            let joint_c = inner.next().unwrap().as_str().to_string();
+            
+            let angle_pair = inner.next().unwrap();
+            let mut number_value = 0.0f32;
+            let mut is_degrees = false;
+        
+            for inner_pair in angle_pair.into_inner() {
+                match inner_pair.as_rule() {
+                    Rule::number => {
+                        number_value = inner_pair.as_str().parse()?;
+                    }
+                    Rule::angle_unit => {
+                        match inner_pair.as_str() {
+                            "deg" | "degrees" => is_degrees = true,
+                            "rad" | "radians" => is_degrees = false,
+                            _ => {} // fallback is radians
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        
+            let angle = if is_degrees {
+                number_value.to_radians()
+            } else {
+                number_value
+            };
+        
+            Ok(ConstraintDecl::FixedAngle { joint_a, pivot, joint_c, angle })
+        }
+                        _ => Err("Unknown constraint type".into())
     }
 }
 

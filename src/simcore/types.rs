@@ -87,7 +87,7 @@ impl Position {
 #[derive(Debug, Clone)]
 pub struct FixedPositionConstraint {
     pub joint_id: JointId,
-    pub target_position: Position, // Changed from Vec2 to Position
+    pub target_position: Position, 
 }
 
 #[derive(Debug, Clone)]
@@ -116,8 +116,15 @@ pub struct PrismaticConstraintVector {
 #[derive(Debug, Clone)]
 pub struct PrismaticConstraintLink {
     pub joint_id: JointId,
-    pub link_id: LinkId, // Normalize the axis vector
+    pub link_id: LinkId,
     pub origin: Vec3,
 
 }
 
+#[derive(Debug, Clone)]
+pub struct FixedAngleConstraint {
+    pub joint_a: JointId, // one side of the angle
+    pub pivot: JointId,   // shared point
+    pub joint_c: JointId, // other side of the angle
+    pub angle: f32,       // desired angle in radians
+}

@@ -23,7 +23,8 @@ pub enum ConstraintDecl {
     Plane { joints: Vec<String>, normal: Vec3, point: Option<Vec3> },
     PrismaticVector { joints: Vec<String>, axis: Vec3, origin: Vec3 },
     PrismaticLink { joints: Vec<String>, link: String, origin: Vec3 },
-}
+    FixedAngle { joint_a: String, pivot: String, joint_c: String, angle: f32,},
+    }
 impl ConstraintDecl {
     pub fn constraint_type(&self) -> &str {
         match self {
@@ -32,6 +33,7 @@ impl ConstraintDecl {
             ConstraintDecl::Plane { .. } => "Plane",
             ConstraintDecl::PrismaticVector { .. } => "PrismaticVector",
             ConstraintDecl::PrismaticLink { .. } => "PrismaticLink",
+            ConstraintDecl::FixedAngle { .. } => "FixedAngle",
         }
     }
 }

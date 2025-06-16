@@ -15,6 +15,7 @@ pub struct KeyBindings {
     pub mouse_pan: MouseButton,
     pub zoom_in: KeyCode,
     pub zoom_out: KeyCode,
+    pub iterations_per_time_step: usize,
 }
 
 impl Default for KeyBindings {
@@ -31,6 +32,7 @@ impl Default for KeyBindings {
             mouse_pan: MouseButton::Left,
             zoom_in: KeyCode::Equal,
             zoom_out: KeyCode::Minus,
+            iterations_per_time_step: 20,
         }
     }
 }

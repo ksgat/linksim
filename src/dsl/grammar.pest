@@ -17,7 +17,8 @@ constraint_decl = {
     fixed_constraint |
     plane_constraint |
     prismatic_constraint_vector |
-    prismatic_constraint_link
+    prismatic_constraint_link |
+    fixed_constraint_angle
 }
 
 distance_constraint = { "distance" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ number ~ ")" }
@@ -31,6 +32,9 @@ plane_constraint = { "plane" ~ "(" ~ "(" ~ identifier_list ~ ")" ~ "," ~ axis ~ 
 prismatic_constraint_vector = { "prismatic_vector" ~ "(" ~ identifier_list ~ "," ~ axis ~ "," ~ vec3 ~ ")" }
 //joint(s) to be prismatically locked, link to move along, orgin
 prismatic_constraint_link = { "prismatic_link" ~ "(" ~ "("  ~ identifier_list ~ ")" ~ "," ~ identifier ~ "," ~ "(" ~ vec3 ~ ")" ~")" }
+//link 1, link 2, pivot joint, identifier
+fixed_constraint_angle = { "fixed_angle" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ identifier ~ "," ~ angle_value ~ ")" }
+
 
 identifier_list = { identifier ~ ("," ~ identifier)* }
 
@@ -39,6 +43,9 @@ axis = { "X" | "Y" | "Z" }
 identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
 vec3 = { "(" ~ number ~ "," ~ number ~ "," ~ number ~ ")" }
+
+angle_value = { number ~ angle_unit? }
+angle_unit = {"degrees" | "radians" | "deg" | "rad"}
 
 
 number = @{

@@ -23,8 +23,9 @@ pub struct ListeningState {
 
 
 #[derive(Resource, Default)]
-struct TextState {
-    content: String,
+pub struct TextState {
+    pub content: String,
+    pub other_speed_string: String,
 }
 #[derive(Resource, Default)]
 struct JointState {
@@ -267,13 +268,18 @@ fn ui_example_system(
 
 
 
-
 pub fn keybindings_ui(
     mut contexts: EguiContexts,
     keys: Res<ButtonInput<KeyCode>>,
     mut bindings: ResMut<KeyBindings>,
     mut listen: ResMut<ListeningState>,
+    mut text_state: ResMut<TextState>,
 ) {
+    // Sync text input string *only if* it's empty (e.g. first frame or after applying)
+    if text_state.other_speed_string.is_empty() {
+        text_state.other_speed_string = bindings.iterations_per_time_step.to_string();
+    }
+
     egui::Window::new("Keybindings").show(contexts.ctx_mut(), |ui| {
         ui.label("Click a button, then press a new key.");
 
@@ -298,7 +304,26 @@ pub fn keybindings_ui(
         editable_binding!("Zoom In", zoom_in);
         editable_binding!("Zoom Out", zoom_out);
         editable_binding!("Shift", shift);
-        // mouse bindings later...
+
+        ui.separator();
+
+        ui.horizontal(|ui| {
+            ui.label("iteration counter");
+
+            let response = ui.text_edit_singleline(&mut text_state.other_speed_string);
+
+            // On Enter or losing focus, try to parse and update binding
+            if (response.lost_focus() && keys.pressed(KeyCode::Enter)) || response.changed() 
+                        {
+                if let Ok(val) = text_state.other_speed_string.trim().parse::<usize>() {
+                    bindings.iterations_per_time_step = val;
+                    // Optional: sync text_state string exactly with parsed value
+                    text_state.other_speed_string = val.to_string();
+                } else {
+                    // Optionally handle invalid input (e.g. clear or notify)
+                }
+            }
+        });
     });
 
     if let Some(field) = listen.current {
@@ -319,13 +344,14 @@ pub fn keybindings_ui(
         }
     }
 }
+
 fn setup_sim_from_dsl(dsl_code: &str) -> Result<Simulation, Box<dyn std::error::Error>> {
     // Parse DSL to AST
     let program = UgokuParser::parse_dsl(dsl_code)?;
-    
+
     // Compile AST to simulation
     let sim = DslCompiler::compile_to_simulation(program)
         .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
-    
+
     Ok(sim)
 }
