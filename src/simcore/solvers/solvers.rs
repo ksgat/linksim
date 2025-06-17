@@ -1,8 +1,7 @@
-use crate::simcore::types::*; use bevy::render::render_resource::encase::vector;
-// Add Position
+use crate::simcore::types::*; 
 use glam::{Vec3, Quat};
 use std::any::Any;
-
+use crate::simcore::bindings::apply_distance;
 impl Simulation {
     pub fn step(&mut self, dt: f32, iterations: usize) {
         let iterations = iterations * 2;
@@ -62,7 +61,7 @@ impl Constraint for DistanceConstraint {
         if let Some((joint_a, joint_b)) = sim.get_two_joints_mut(self.joint_a, self.joint_b) {
             let delta = joint_b.position.sub(joint_a.position);
             let current_distance = delta.length();
-            let error = current_distance - self.target_distance;
+            let error: f32 = current_distance - self.target_distance;
 
             if error.abs() > 1e-6 && current_distance > 0.0 {
                 let correction = delta.normalize().scale(error * 0.5);
@@ -195,66 +194,58 @@ impl PrismaticConstraintLink {
     }
 }
 //broken as shit bro
-impl Constraint for FixedAngleConstraint {
+impl Constraint for FixedAngleConstraint { 
     fn apply(&self, sim: &mut Simulation) {
-        let pos_a = sim.joints[self.joint_a].position.as_vec3();
-        let pos_b = sim.joints[self.pivot].position.as_vec3();
-        let pos_c = sim.joints[self.joint_c].position.as_vec3();
-
-        let vec_ab = pos_a - pos_b;
-        let vec_cb = pos_c - pos_b;
-
-        if vec_ab.length() < 1e-6 || vec_cb.length() < 1e-6 {
-            return; 
-        }
-
-        let n_ab = vec_ab.normalize();
-        let n_cb = vec_cb.normalize();
-
-        let dot = n_ab.dot(n_cb).clamp(-1.0, 1.0);
-        let current_angle = dot.acos();
-        let error = current_angle - self.angle;
-
-        if error.abs() < 1e-6 {
+        let pivot_pos = if let Some(pivot_joint) = sim.joints.get(self.pivot_joint_id) {
+            pivot_joint.position
+        } else {
             return;
+        };
+    
+        if let Some((joint_a, joint_b)) = sim.get_two_joints_mut(self.joint_a_id, self.joint_b_id) {
+            let r_a = (joint_a.position.sub(pivot_pos)).length();
+            let r_b = (joint_b.position.sub(pivot_pos)).length();
+        
+            // Debug: Print current distances
+            println!("r_a: {}, r_b: {}", r_a, r_b);
+        
+            let target_distance = (r_a.powi(2) + r_b.powi(2) - 2.0 * r_a * r_b * self.target_angle.cos()).sqrt();
+            
+            let distance_constraint = DistanceConstraint{
+                joint_a: self.joint_a_id,
+                joint_b: self.joint_b_id,
+                target_distance:target_distance,
+            };
+
+            distance_constraint.apply(sim);
         }
-
-        let axis = n_ab.cross(n_cb);
-        if axis.length_squared() < 1e-12 {
-            return;
-        }
-
-        let correction_strength = 0.05;
-        let half_angle = error * 0.5 * correction_strength;
-        let axis = axis.normalize();
-
-        let rot_a = Quat::from_axis_angle(axis, -half_angle);
-        let rot_c = Quat::from_axis_angle(axis,  half_angle);
-
-        let new_ab = rot_a * vec_ab;
-        let new_cb = rot_c * vec_cb;
-
-        sim.joints[self.joint_a].position = Position::Vec3(pos_b + new_ab);
-        sim.joints[self.joint_c].position = Position::Vec3(pos_b + new_cb);
     }
-
     fn is_satisfied(&self, sim: &Simulation) -> bool {
-        let pos_a = sim.joints[self.joint_a].position.as_vec3();
-        let pos_b = sim.joints[self.pivot].position.as_vec3();
-        let pos_c = sim.joints[self.joint_c].position.as_vec3();
-
-        let vec_ab = pos_a - pos_b;
-        let vec_cb = pos_c - pos_b;
-
-        if vec_ab.length() < 1e-6 || vec_cb.length() < 1e-6 {
-            return true;
+        let pivot = sim.joints.get(self.pivot_joint_id);
+        let joint_a = sim.joints.get(self.joint_a_id);
+        let joint_b = sim.joints.get(self.joint_b_id);
+    
+        if let (Some(pivot), Some(joint_a), Some(joint_b)) = (pivot, joint_a, joint_b) {
+            let pivot_pos = pivot.position.as_vec3();
+            let a_pos = joint_a.position.as_vec3();
+            let b_pos = joint_b.position.as_vec3();
+    
+            let r_a = (a_pos - pivot_pos).length();
+            let r_b = (b_pos - pivot_pos).length();
+            let target_dist = (r_a.powi(2) + r_b.powi(2) - 2.0 * r_a * r_b * self.target_angle.cos()).sqrt();
+    
+            let actual_dist = (b_pos - a_pos).length();
+            let epsilon = 1e-4;
+    
+            (actual_dist - target_dist).abs() < epsilon
+        } else {
+            false
         }
-
-        let angle = vec_ab.normalize().angle_between(vec_cb.normalize());
-        (angle - self.angle).abs() < 1e-5
     }
-
+    
     fn as_any(&self) -> &dyn Any {
         self
     }
+
 }
+

@@ -123,8 +123,8 @@ pub struct PrismaticConstraintLink {
 
 #[derive(Debug, Clone)]
 pub struct FixedAngleConstraint {
-    pub joint_a: JointId, // one side of the angle
-    pub pivot: JointId,   // shared point
-    pub joint_c: JointId, // other side of the angle
-    pub angle: f32,       // desired angle in radians
+    pub joint_a_id: JointId,    // First joint of link A (not the pivot)
+    pub joint_b_id: JointId,    // First joint of link B (not the pivot)
+    pub pivot_joint_id: JointId, // The shared pivot joint
+    pub target_angle: f32,   // in radians
 }

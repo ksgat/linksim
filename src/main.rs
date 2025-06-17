@@ -23,16 +23,16 @@ pub struct ListeningState {
 
 
 #[derive(Resource, Default)]
+pub struct FilePath {
+    pub path: String,
+}
+
+#[derive(Resource, Default)]
 pub struct TextState {
     pub content: String,
     pub other_speed_string: String,
 }
-#[derive(Resource, Default)]
-struct JointState {
-    x: f32,
-    y: f32,
-    z: f32,
-}
+
 
 #[derive(Event)]
 pub struct ReplaceSim(pub Simulation);
@@ -52,9 +52,12 @@ fn main() {
         .insert_resource(SelectedJoint::default())
         .insert_resource(TextState::default())
         .insert_resource(InputFocus::default())
-        .insert_resource(JointState::default())
         .insert_resource(ListeningState::default())
+        .insert_resource(FilePath::default())
         .insert_resource(KeyBindings::default())
+        .insert_resource(SimWrapper {
+            sim: Simulation::default(),
+        })
         .add_systems(
 
             Startup,
@@ -85,130 +88,46 @@ fn main() {
 
 
 
-fn setup_sim(mut commands: Commands) {
-    let mut sim = Simulation::default();
-    let joint_pos_a = Position::Vec3(glam::Vec3::new(0.0, 0.0, 0.0));
-    let joint_pos_b = Position::Vec3(glam::Vec3::new(2.0, 0.0, 0.0));
-    let joint_pos_c = Position::Vec3(glam::Vec3::new(2.0, 0.0, 2.0));
-    let joint_pos_d = Position::Vec3(glam::Vec3::new(0.0, 0.0, 2.0));
+fn setup_sim(    
+    mut sim_wrapper: ResMut<SimWrapper>,
+    joint_query: Query<Entity, With<JointWrapper>>,
+    link_query: Query<Entity, With<LinkWrapper>>,
+
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+) {
+
+    let code = std::fs::read_to_string("src\\examples\\fourbar.ugoku");
+    match code {
+        Ok(ref s) => {
+            match setup_sim_from_dsl(s) {
+                Ok(new_sim) => {
+                    println!("Successfully created simulation with {} joints", new_sim.joints.len());
+                    sim_wrapper.sim = new_sim;
+                    render_sim(
+                        sim_wrapper,
+                        joint_query,
+                        link_query,
+                        commands,
+                        meshes,
+                        materials,
+                    );
+                },
+                Err(e) => {
+                    eprintln!("Error parsing DSL: {}", e);
+                }
+            }
+        },
+        Err(e) => {
+            eprintln!("Failed to read file: {}", e);
+        }
+    }
     
-    // Create joints
-    let joint_a = sim.joints.insert(Joint {
-        position: joint_pos_a,
-        joint_type: JointType::Fixed,
-        connected_links: Vec::new(),
-    });
-    let joint_b = sim.joints.insert(Joint {
-        position: joint_pos_b,
-        joint_type: JointType::Revolute,
-        connected_links: Vec::new(),
-    });
-    let joint_c = sim.joints.insert(Joint {
-        position: joint_pos_c,
-        joint_type: JointType::Revolute,
-        connected_links: Vec::new(),
-    });
-    let joint_d = sim.joints.insert(Joint {
-        position: joint_pos_d,
-        joint_type: JointType::Revolute,
-        connected_links: Vec::new(),
-    });
 
-
-
-    // Define link properties
-    let link_ab_len = joint_pos_a.distance(joint_pos_b);
-    let link_bc_len = joint_pos_b.distance(joint_pos_c);
-    let link_cd_len = joint_pos_c.distance(joint_pos_d);
-    let link_da_len = joint_pos_d.distance(joint_pos_a);
-
-    // Create links
-    let link_ab = sim.links.insert(Link {
-        joints: vec![joint_a, joint_b],
-        rigid: true,
-    });
-    let link_bc = sim.links.insert(Link {
-        joints: vec![joint_b, joint_c],
-        rigid: true,
-    });
-    let link_cd = sim.links.insert(Link {
-        joints: vec![joint_c, joint_d],
-        rigid: true,
-    });
-    let link_da = sim.links.insert(Link {
-        joints: vec![joint_d, joint_a],
-        rigid: true,
-    });
-
-    // Add links to joints
-    sim.joints.get_mut(joint_a).unwrap().connected_links.push(link_ab);
-    sim.joints.get_mut(joint_a).unwrap().connected_links.push(link_da);
-    sim.joints.get_mut(joint_b).unwrap().connected_links.push(link_ab);
-    sim.joints.get_mut(joint_b).unwrap().connected_links.push(link_bc);
-    sim.joints.get_mut(joint_c).unwrap().connected_links.push(link_bc);
-    sim.joints.get_mut(joint_c).unwrap().connected_links.push(link_cd);
-    sim.joints.get_mut(joint_d).unwrap().connected_links.push(link_cd);
-    sim.joints.get_mut(joint_d).unwrap().connected_links.push(link_da);
-
-    // Fix joints A and C
-    sim.constraints.push(Box::new(FixedPositionConstraint {
-        joint_id: joint_a,
-        target_position: joint_pos_a,
-    }));
-    sim.constraints.push(Box::new(FixedPositionConstraint {
-        joint_id: joint_b,
-        target_position: joint_pos_b,
-    }));
-
-    // Add distance constraints
-    sim.constraints.push(Box::new(DistanceConstraint {
-        joint_a: joint_a,
-        joint_b: joint_b,
-        target_distance: link_ab_len,
-    }));
-    sim.constraints.push(Box::new(DistanceConstraint {
-        joint_a: joint_b,
-        joint_b: joint_c,
-        target_distance: link_bc_len,
-    }));
-    sim.constraints.push(Box::new(DistanceConstraint {
-        joint_a: joint_c,
-        joint_b: joint_d,
-        target_distance: link_cd_len,
-    }));
-    sim.constraints.push(Box::new(DistanceConstraint {
-        joint_a: joint_d,
-        joint_b: joint_a,
-        target_distance: link_da_len,
-    }));
-    let plane = glam::Vec3::Y;
-    sim.constraints.push(Box::new(PlaneConstraint {
-        joint_id: joint_a,
-        normal: plane,
-        plane_point: glam::Vec3::ZERO,
-    }));
-    sim.constraints.push(Box::new(PlaneConstraint {
-        joint_id: joint_b,
-        normal: plane,
-        plane_point: glam::Vec3::ZERO,
-    }));
-    sim.constraints.push(Box::new(PlaneConstraint {
-        joint_id: joint_c,
-        normal: plane,
-        plane_point: glam::Vec3::ZERO,
-    }));
-    sim.constraints.push(Box::new(PlaneConstraint {
-        joint_id: joint_d,
-        normal: plane,
-        plane_point: glam::Vec3::ZERO,
-    }));
-
-    commands.insert_resource(SimWrapper { sim });
 }
 
 
-
-//f
 
 fn ui_example_system(
     mut contexts: EguiContexts,
@@ -220,54 +139,77 @@ fn ui_example_system(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     mut text_state: ResMut<TextState>,
+    mut file_path: ResMut<FilePath>,
     mut input_focus: ResMut<InputFocus>,
-    mut joint_state: ResMut<JointState>,
 
 ) { 
     let ctx = contexts.ctx_mut();
     input_focus.egui_focused = ctx.wants_pointer_input() || ctx.wants_keyboard_input();
 
-    egui::Window::new("Ugoku!").show(contexts.ctx_mut(), |ui| {
-        ui.label("world");
+    egui::Window::new("Ugoku!")
+        .resizable(true)
+        .collapsible(true)
+        .default_size([400.0, 300.0])
+        .min_size([200.0, 150.0])
+        .max_size([800.0, 600.0])
+        .show(contexts.ctx_mut(), |ui| {
+            ui.label("world");
+            // this could be like attach file idk, im not focusing on web builds anymoreq
+            //i hate ui bro
+            
+            ui.add_sized(
+                [200.0, 11.0],
+                egui::TextEdit::singleline(&mut file_path.path)
+                    .hint_text("Enter filepath here")
+            );
+            
+            ui.add_sized(
+                [ui.available_width(), 200.0],
+                egui::TextEdit::multiline(&mut text_state.content)
+                    .code_editor()
+                    .hint_text("Enter text here")
+            );
 
-        ui.add(egui::TextEdit::multiline(&mut text_state.content).code_editor().hint_text("Enter text here")
-    );
-        
-        ui.horizontal(|ui| {
-            ui.label("X:");
-            ui.add(egui::DragValue::new(&mut joint_state.x));
-            ui.label("Y:");
-            ui.add(egui::DragValue::new(&mut joint_state.y));
-            ui.label("Z:");
-            ui.add(egui::DragValue::new(&mut joint_state.z));
-        });
-        
-        if ui.button("Do Something").clicked() {
-            match setup_sim_from_dsl(text_state.content.as_str()) {
-                Ok(new_sim) => {
-                    println!("Successfully created simulation with {} joints", new_sim.joints.len());
-                    sim_wrapper.sim = new_sim;
-                    render_sim(
-                        sim_wrapper,
-                        joint_query,
-                        link_query,
-                        commands,
-                        meshes,
-                        materials,
-                        
-                    );
+       
 
-                },
-                Err(e) => {
-                    eprintln!("Error parsing DSL: {}", e);
+            if ui.button("Compile from ").clicked() {
+
+                let actualpath = file_path.path.replace("\\", "\\\\");
+
+
+                match std::fs::read_to_string(actualpath) {
+                    Ok(content) => {
+                        text_state.content = content;
+                        println!("Loaded content from {}", file_path.path);
+                    },
+                    Err(e) => {
+                        eprintln!("Error reading file: {}", e);
+                    }
+                }
+
+                
+                match setup_sim_from_dsl(text_state.content.as_str()) {
+                    Ok(new_sim) => {
+                        println!("Successfully created simulation with {} joints", new_sim.joints.len());
+                        sim_wrapper.sim = new_sim;
+                        render_sim(
+                            sim_wrapper,
+                            joint_query,
+                            link_query,
+                            commands,
+                            meshes,
+                            materials,
+                            
+                        );
+
+                    },
+                    Err(e) => {
+                        eprintln!("Error parsing DSL: {}", e);
+                    }
                 }
             }
-        }
-    });
+        });
 }
-
-
-
 pub fn keybindings_ui(
     mut contexts: EguiContexts,
     keys: Res<ButtonInput<KeyCode>>,
@@ -275,7 +217,6 @@ pub fn keybindings_ui(
     mut listen: ResMut<ListeningState>,
     mut text_state: ResMut<TextState>,
 ) {
-    // Sync text input string *only if* it's empty (e.g. first frame or after applying)
     if text_state.other_speed_string.is_empty() {
         text_state.other_speed_string = bindings.iterations_per_time_step.to_string();
     }
@@ -317,10 +258,8 @@ pub fn keybindings_ui(
                         {
                 if let Ok(val) = text_state.other_speed_string.trim().parse::<usize>() {
                     bindings.iterations_per_time_step = val;
-                    // Optional: sync text_state string exactly with parsed value
                     text_state.other_speed_string = val.to_string();
                 } else {
-                    // Optionally handle invalid input (e.g. clear or notify)
                 }
             }
         });
