@@ -24,6 +24,7 @@ pub enum ConstraintDecl {
     PrismaticVector { joints: Vec<String>, axis: Vec3, origin: Vec3 },
     PrismaticLink { joints: Vec<String>, link: String, origin: Vec3 },
     FixedAngle { joint_a: String, pivot: String, joint_c: String, angle: f32,},
+    Revolute { joint_a: String, joint_b: String, axis: Vec3, min_angle: f32, max_angle: f32 },
     }
 impl ConstraintDecl {
     pub fn constraint_type(&self) -> &str {
@@ -34,6 +35,7 @@ impl ConstraintDecl {
             ConstraintDecl::PrismaticVector { .. } => "PrismaticVector",
             ConstraintDecl::PrismaticLink { .. } => "PrismaticLink",
             ConstraintDecl::FixedAngle { .. } => "FixedAngle",
+            ConstraintDecl::Revolute { .. } => "Revolute",
         }
     }
 }

@@ -24,3 +24,4 @@ also Q & E for primitive orbit
 space bar to change view projection mode (orthographic, perspective, orthographic2d)
 
 left click to select joints
+

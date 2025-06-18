@@ -146,3 +146,30 @@ pub fn apply_fixed_angle(
     Ok(())
 }
 
+pub fn apply_revolute(
+    sim: &mut Simulation,
+    joint_name_to_id: &HashMap<String, JointId>,
+    pivot_joint: &str,
+    moving_joint:  &str,
+    rest_direction: Vec3,
+    min_angle: f32,
+    max_angle: f32,
+
+){
+    let pivot_joint_id = joint_name_to_id
+        .get(pivot_joint)
+        .ok_or_else(|| format!("Pivot joint '{}' not found", pivot_joint)).unwrap();
+    let moving_joint_id = joint_name_to_id
+        .get(moving_joint)
+        .ok_or_else(|| format!("Moving joint '{}' not found", moving_joint)).unwrap();
+
+    sim.constraints.push(Box::new(RevoluteConstraint {
+        pivot_joint_id: *pivot_joint_id,
+        moving_joint_id: *moving_joint_id,
+        rest_direction, // Default direction, can be adjusted later
+        min_angle,
+        max_angle,
+    }));
+
+}
+

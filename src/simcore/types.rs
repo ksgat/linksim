@@ -128,3 +128,14 @@ pub struct FixedAngleConstraint {
     pub pivot_joint_id: JointId, // The shared pivot joint
     pub target_angle: f32,   // in radians
 }
+
+
+#[derive(Debug, Clone)]
+pub struct RevoluteConstraint{
+    pub pivot_joint_id: JointId, 
+    pub moving_joint_id: JointId,   
+    pub rest_direction: Vec3, 
+    pub min_angle: f32, 
+    pub max_angle: f32, 
+}
+

@@ -8,4 +8,6 @@ sim fourbar{
 	fixed(a)
 	fixed_angle(c,a, b, 45deg)
 	plane((a,b,c), Y)
+	revolute(a,b, (0,1,0), 40deg, 120deg)
+
 }

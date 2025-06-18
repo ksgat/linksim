@@ -1,6 +1,8 @@
 pub mod util;
 pub mod simcore;
 pub mod dsl;
+use wasm_bindgen::prelude::*;
+use web_sys::{HtmlAnchorElement, Blob, BlobPropertyBag, Url};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContextPass, EguiContexts, EguiPlugin};
@@ -156,13 +158,13 @@ fn ui_example_system(
             ui.label("world");
             // this could be like attach file idk, im not focusing on web builds anymoreq
             //i hate ui bro
-            
+            /*
             ui.add_sized(
                 [200.0, 11.0],
                 egui::TextEdit::singleline(&mut file_path.path)
                     .hint_text("Enter filepath here")
             );
-            
+             */
             ui.add_sized(
                 [ui.available_width(), 200.0],
                 egui::TextEdit::multiline(&mut text_state.content)
@@ -170,24 +172,15 @@ fn ui_example_system(
                     .hint_text("Enter text here")
             );
 
-       
-
-            if ui.button("Compile from ").clicked() {
-
-                let actualpath = file_path.path.replace("\\", "\\\\");
-
-
-                match std::fs::read_to_string(actualpath) {
-                    Ok(content) => {
-                        text_state.content = content;
-                        println!("Loaded content from {}", file_path.path);
-                    },
-                    Err(e) => {
-                        eprintln!("Error reading file: {}", e);
-                    }
+            if ui.button("Save to file").clicked() {
+                match save_string_to_file("simulation.ugoku", &text_state.content) {
+                    Ok(_) => web_sys::console::log_1(&"File saved successfully!".into()),
+                    Err(e) => web_sys::console::error_1(&format!("Error saving file: {:?}", e).into()),
                 }
+            }
+            
+            if ui.button("Compile").clicked() {
 
-                
                 match setup_sim_from_dsl(text_state.content.as_str()) {
                     Ok(new_sim) => {
                         println!("Successfully created simulation with {} joints", new_sim.joints.len());
@@ -293,4 +286,41 @@ fn setup_sim_from_dsl(dsl_code: &str) -> Result<Simulation, Box<dyn std::error::
         .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
     Ok(sim)
+}
+
+#[wasm_bindgen]
+pub fn save_string_to_file(filename: &str, contents: &str) -> Result<(), JsValue> {
+    use web_sys::*;
+    
+    let window = window().ok_or("no global `window` exists")?;
+    let document = window.document().ok_or("should have a document on window")?;
+
+    // Create blob with proper array handling
+    let blob_parts = js_sys::Array::new();
+    blob_parts.push(&JsValue::from_str(contents));
+    
+    let blob_options = BlobPropertyBag::new();
+    blob_options.set_type("text/plain");
+    
+    let blob = Blob::new_with_str_sequence_and_options(&blob_parts, &blob_options)?;
+    let url = Url::create_object_url_with_blob(&blob)?;
+
+    // Create and configure download link
+    let a = document
+        .create_element("a")?
+        .dyn_into::<HtmlAnchorElement>()?;
+    
+    a.set_href(&url);
+    a.set_download(filename);
+ 
+    // Append, click, and cleanup
+    let body = document.body().ok_or("document should have a body")?;
+    body.append_child(&a)?;
+    a.click();
+    body.remove_child(&a)?;
+    
+    // Revoke the object URL to free memory
+    Url::revoke_object_url(&url)?;
+
+    Ok(())
 }
