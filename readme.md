@@ -1,14 +1,16 @@
-# Neighborhood project
+# Ugoku!
 
-the goal for this is rather ambitious i think, basically openscad but with movement and stuff i dont have a super clear vision but yea, this will become more like "official" once i have stuff down but right now i need to actually have something built so yea
+![image](https://github.com/user-attachments/assets/f80459c9-fc30-4e08-8b0d-ae350a0d9bce)
 
-If you want latest version then build from source, yk just like git clone and then cargo run and you should be fine, the web port isnt up to date right now, it runs fine on native
+A position based dynamics (quasi)-kinematics simulator
 
-I think ill call it ugoku or something like that but linksim isnt tuff ngl
+Ugoku is an experimental simulation tool for building and animating(soon) mechanical linkages. Largely inspired by OpenSCAD, but with movement in mind, it lets you define structures via scripts and simulate their motion using position-based dynamics.
 
-ui is still coming but im learning rust still so i gotta learn bevy + rust not just bevy, which means things take longer
+It’s still early days  the UI is a work in progress, the web port lags behind, and the name might change. Buhe goal is to make a programmable environment for exploring motion, linkages, constraints, and more.
 
-web port will be updated once i get a linkage editor setup
+Still heavy work in progress, also taking a quick break from development to focus my efforts elsewhere
+
+Eventually i will implement all 507 mechanical movements from 507movements (dot) com.
 
 
 controls -
