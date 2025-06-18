@@ -1,0 +1,62 @@
+file = { SOI ~ program ~ EOI }
+
+program = { "sim" ~ identifier ~ "{" ~ statement* ~ "}" }
+
+statement = {
+    joint_decl |
+    link_decl |
+    constraint_decl
+}
+
+joint_decl = { "joint" ~ identifier ~ "(" ~ number ~ "," ~ number ~ ("," ~ number)? ~ ")" }
+
+link_decl = { "link" ~ identifier ~ "(" ~ identifier ~ "," ~ identifier ~ ")" }
+
+constraint_decl = {
+    distance_constraint |
+    fixed_constraint |
+    plane_constraint |
+    prismatic_constraint_vector |
+    prismatic_constraint_link |
+    fixed_constraint_angle |
+    revolute_constraint
+}
+
+distance_constraint = { "distance" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ number ~ ")" }
+
+fixed_constraint = { "fixed" ~ "(" ~ identifier_list ~ ")" }
+
+plane_constraint = { "plane" ~ "(" ~ "(" ~ identifier_list ~ ")" ~ "," ~ axis ~ ")" }
+
+
+//joint(s) to be prismatically locked, arbitrary vector to move along, orgin
+prismatic_constraint_vector = { "prismatic_vector" ~ "(" ~ identifier_list ~ "," ~ axis ~ "," ~ vec3 ~ ")" }
+//joint(s) to be prismatically locked, link to move along, orgin
+prismatic_constraint_link = { "prismatic_link" ~ "(" ~ "("  ~ identifier_list ~ ")" ~ "," ~ identifier ~ "," ~ "(" ~ vec3 ~ ")" ~")" }
+//link 1, link 2, pivot joint, identifier
+fixed_constraint_angle = { "fixed_angle" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ identifier ~ "," ~ angle_value ~ ")" }
+
+//pivot joint, moving joint,
+revolute_constraint = { "revolute" ~ "(" ~ identifier ~ "," ~ identifier ~ ","  ~ vec3 ~"," ~ angle_value ~ "," ~ angle_value ~ ")" }
+
+identifier_list = { identifier ~ ("," ~ identifier)* }
+
+axis = { "X" | "Y" | "Z" }
+
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+vec3 = { "(" ~ number ~ "," ~ number ~ "," ~ number ~ ")" }
+
+angle_value = { number ~ angle_unit? }
+angle_unit = {"degrees" | "radians" | "deg" | "rad"}
+
+
+number = @{
+    "-"? ~ (
+        "0" |
+        (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ) ~ ("." ~ ASCII_DIGIT+)?
+}
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+

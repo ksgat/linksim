@@ -1,0 +1,22 @@
+sim watts_linkage {
+    joint left_fixed(0, 0, 0)
+    joint right_fixed(6, 0, 0)
+    joint left_rocker_end(1, 2, 0)
+    joint right_rocker_end(5, 2, 0)
+    joint center_point(3, 1.5, 0)
+    joint traced_point(3, 3, 0)
+    
+    link left_rocker(left_fixed, left_rocker_end)
+    link right_rocker(right_fixed, right_rocker_end)
+    link left_coupler(left_rocker_end, center_point)
+    link right_coupler(right_rocker_end, center_point)
+    link tracer_arm(center_point, traced_point)
+    
+    distance(left_fixed, left_rocker_end, 2.236)
+    distance(right_fixed, right_rocker_end, 2.236)
+    distance(left_rocker_end, center_point, 2.236)
+    distance(right_rocker_end, center_point, 2.236)
+    distance(center_point, traced_point, 1.5)
+    
+    fixed((left_fixed, right_fixed))
+}
