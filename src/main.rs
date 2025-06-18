@@ -60,6 +60,7 @@ fn main() {
         .insert_resource(SimWrapper {
             sim: Simulation::default(),
         })
+        .add_systems(Startup, set_fullscreen_canvas)
         .add_systems(
 
             Startup,
@@ -323,4 +324,14 @@ pub fn save_string_to_file(filename: &str, contents: &str) -> Result<(), JsValue
     Url::revoke_object_url(&url)?;
 
     Ok(())
+}
+
+fn set_fullscreen_canvas(mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
+
+    // Use the actual browser window dimensions
+    let width = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap();
+    let height = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap();
+
+    window.unwrap().resolution.set(width as f32, height as f32);
 }
