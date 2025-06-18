@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Bevy Four-Bar Linkage Sim</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+    </style>
+<link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"></head>
+<body>
+
+<script type="module">
+import init, * as bindings from '/sim/linksim-772723654fb66e81.js';
+const wasm = await init({ module_or_path: '/sim/linksim-772723654fb66e81_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script></body>
+</html>
