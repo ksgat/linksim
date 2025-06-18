@@ -18,7 +18,8 @@ constraint_decl = {
     plane_constraint |
     prismatic_constraint_vector |
     prismatic_constraint_link |
-    fixed_constraint_angle
+    fixed_constraint_angle |
+    revolute_constraint
 }
 
 distance_constraint = { "distance" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ number ~ ")" }
@@ -35,6 +36,8 @@ prismatic_constraint_link = { "prismatic_link" ~ "(" ~ "("  ~ identifier_list ~ 
 //link 1, link 2, pivot joint, identifier
 fixed_constraint_angle = { "fixed_angle" ~ "(" ~ identifier ~ "," ~ identifier ~ "," ~ identifier ~ "," ~ angle_value ~ ")" }
 
+//pivot joint, moving joint,
+revolute_constraint = { "revolute" ~ "(" ~ identifier ~ "," ~ identifier ~ ","  ~ vec3 ~"," ~ angle_value ~ "," ~ angle_value ~ ")" }
 
 identifier_list = { identifier ~ ("," ~ identifier)* }
 
@@ -56,4 +59,3 @@ number = @{
 }
 
 WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
-

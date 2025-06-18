@@ -24,7 +24,6 @@ pub fn parse_program(mut pairs: Pairs<Rule>) -> Result<Program, Box<dyn std::err
     let mut joints = Vec::new();
     let mut links = Vec::new();
     let mut constraints = Vec::new();
-    
     for statement in inner {
         // Get the inner Pair (joint_decl, link_decl, or constraint_decl)
         let inner_pair = statement.into_inner().next().unwrap();
@@ -239,7 +238,38 @@ fn parse_constraint_decl(pair: Pair<Rule>) -> Result<ConstraintDecl, Box<dyn std
         
             Ok(ConstraintDecl::FixedAngle { joint_a, pivot, joint_c, angle })
         }
-                        _ => Err("Unknown constraint type".into())
+        Rule::revolute_constraint => {
+            let mut inner = constraint.into_inner();
+            let joint_pivot = inner.next().unwrap().as_str().to_string();
+            let joint_moving = inner.next().unwrap().as_str().to_string();
+            
+            let axis_param = inner.next().unwrap();
+            let axis = match axis_param.as_str() {
+                "X" => Vec3::X,
+                "Y" => Vec3::Y,
+                "Z" => Vec3::Z,
+                _ => {
+                    // Parse as Vec3 tuple
+                    let mut vec_inner = axis_param.into_inner();
+                    let x: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    let y: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    let z: f32 = vec_inner.next().unwrap().as_str().parse()?;
+                    Vec3::new(x, y, z)
+                }
+            };
+            let min_angle = inner.next().unwrap().as_str().parse()?;
+            let max_angle = inner.next().unwrap().as_str().parse()?;
+           
+            Ok(ConstraintDecl::Revolute {
+                joint_a: joint_pivot,
+                joint_b: joint_moving,
+                axis,
+                min_angle,
+                max_angle,
+            })
+        }
+        _ => Err("Unknown constraint type".into())
+
     }
 }
 
@@ -248,4 +278,3 @@ fn parse_identifier_list(pair: Pair<Rule>) -> Vec<String> {
         .map(|p| p.as_str().to_string())
         .collect()
 }
-

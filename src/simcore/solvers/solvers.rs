@@ -1,6 +1,7 @@
 use crate::simcore::types::*; 
-use glam::{Vec3, Quat};
+use glam::{Vec3, Vec2};
 use std::any::Any;
+
 use crate::simcore::bindings::apply_distance;
 impl Simulation {
     pub fn step(&mut self, dt: f32, iterations: usize) {
@@ -221,7 +222,7 @@ impl Constraint for FixedAngleConstraint {
         }
     }
     fn is_satisfied(&self, sim: &Simulation) -> bool {
-        let pivot = sim.joints.get(self.pivot_joint_id);
+        let pivot: Option<&Joint> = sim.joints.get(self.pivot_joint_id);
         let joint_a = sim.joints.get(self.joint_a_id);
         let joint_b = sim.joints.get(self.joint_b_id);
     
@@ -242,10 +243,90 @@ impl Constraint for FixedAngleConstraint {
             false
         }
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
 
 }
 
+
+impl Constraint for RevoluteConstraint {
+    fn apply(&self, sim: &mut Simulation) {
+        let (pivot, moving) = match sim.get_two_joints_mut(self.pivot_joint_id, self.moving_joint_id) {
+            Some((a, b)) => (a, b),
+            None => return,
+        };
+
+        let pivot_pos = pivot.position.as_vec3();
+        let moving_pos = moving.position.as_vec3();
+
+        let current_vec = (moving_pos - pivot_pos).normalize();
+        let rest_vec = self.rest_direction.normalize();
+
+        // Rotation axis = plane normal
+        let plane_normal = rest_vec.cross(current_vec).normalize_or_zero();
+        if plane_normal.length_squared() == 0.0 {
+            return; // degenerate case: no clear rotation plane
+        }
+
+        let dot = rest_vec.dot(current_vec).clamp(-1.0, 1.0);
+        let angle = dot.acos();
+
+        // Signed angle: cross product gives direction
+        let cross = rest_vec.cross(current_vec);
+        let signed_angle = if cross.dot(plane_normal) < 0.0 { -angle } else { angle };
+
+        // Check bounds
+        if signed_angle < self.min_angle || signed_angle > self.max_angle {
+            let clamped_angle = signed_angle.clamp(self.min_angle, self.max_angle);
+
+            // Rotate rest_vec to target angle in plane of plane_normal
+            let rotated_vec = rotate_vec_in_plane(rest_vec, plane_normal, clamped_angle);
+
+            // Maintain original length
+            let dist = (moving_pos - pivot_pos).length();
+            moving.position = Position::Vec3(pivot_pos + rotated_vec * dist);
+        }
+    }   
+
+    fn is_satisfied(&self, sim: &Simulation) -> bool {
+        
+        let pivot = sim.joints.get(self.pivot_joint_id).unwrap();
+        let moving = sim.joints.get(self.moving_joint_id).unwrap();
+        
+        let pivot_pos = pivot.position.as_vec3();
+        let moving_pos = moving.position.as_vec3();
+
+        let current_vec = (moving_pos - pivot_pos).normalize();
+        let rest_vec = self.rest_direction.normalize();
+
+        // Rotation axis = plane normal
+        let plane_normal = rest_vec.cross(current_vec).normalize_or_zero();
+        if plane_normal.length_squared() == 0.0 {
+            return false; // degenerate case: no clear rotation plane
+        }
+
+        let dot = rest_vec.dot(current_vec).clamp(-1.0, 1.0);
+        let angle = dot.acos();
+
+        // Signed angle: cross product gives direction
+        let cross = rest_vec.cross(current_vec);
+        let signed_angle = if cross.dot(plane_normal) < 0.0 { -angle } else { angle };
+        signed_angle >= self.min_angle - 1e-5 && signed_angle <= self.max_angle + 1e-5
+
+        
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    } 
+    }
+    
+   
+/// Rotate a vector by a given angle in the plane defined by a normal.
+/// Uses Rodrigues' rotation formula (but no quats).
+fn rotate_vec_in_plane(vec: Vec3, normal: Vec3, angle: f32) -> Vec3 {
+    let cos = angle.cos();
+    let sin = angle.sin();
+    vec * cos + normal.cross(vec) * sin + normal * normal.dot(vec) * (1.0 - cos)
+}

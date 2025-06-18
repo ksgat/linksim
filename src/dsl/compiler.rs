@@ -72,6 +72,9 @@ impl DslCompiler {
                 ConstraintDecl::FixedAngle { joint_a, pivot, joint_c, angle } => {
                     apply_fixed_angle(&mut sim, &joint_name_to_id, joint_a, pivot, joint_c, *angle)?;
                 }
+                ConstraintDecl::Revolute { joint_a, joint_b, axis, min_angle, max_angle } => {
+                    apply_revolute(&mut sim, &joint_name_to_id, joint_a, joint_b, *axis, *min_angle, *max_angle);
+                }
                 
         }
         }
