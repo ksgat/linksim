@@ -1,5 +1,7 @@
 # Ugoku!
 
+in order to use this make sure you have rust installed, and then cargo run, your exe will be built and then you can run accordingly
+
 ![image](https://github.com/user-attachments/assets/f80459c9-fc30-4e08-8b0d-ae350a0d9bce)
 
 A position based dynamics (quasi)-kinematics simulator
@@ -11,6 +13,8 @@ It’s still early days  the UI is a work in progress, the web port lags behind,
 Still heavy work in progress, also taking a quick break from development to focus my efforts elsewhere
 
 Eventually i will implement all 507 mechanical movements from 507movements (dot) com.
+
+
 
 
 controls -
