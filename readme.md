@@ -1,7 +1,4 @@
 # Ugoku!
-
-in order to use this make sure you have rust installed, and then cargo run, your exe will be built and then you can run accordingly
-
 ![image](https://github.com/user-attachments/assets/f80459c9-fc30-4e08-8b0d-ae350a0d9bce)
 
 A position based dynamics (quasi)-kinematics simulator
