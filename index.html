@@ -7,7 +7,7 @@
         body { margin: 0; overflow: hidden; }
         canvas { width: 100%; height: 100%; }
     </style>
-<link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"><link rel="modulepreload" href="/sim/linksim-6c30545d29319fd1.js" crossorigin="anonymous" integrity="sha384-PWZqLfn+Iam2uC+T54wIvi2mCInTkJRo89ALp0zSfSnGBnfNe5swlpvfNbWqOrBH"><link rel="preload" href="/sim/linksim-6c30545d29319fd1_bg.wasm" crossorigin="anonymous" integrity="sha384-+v7wJ4STcy5fWwt42sjjBdFl325IoslOpGKliVlHebIHUHWyy8MFxs2RHAwyAFQO" as="fetch" type="application/wasm"><link rel="modulepreload" href="/linksim/linksim-5e974ee226fdadbe.js" crossorigin="anonymous" integrity="sha384-dfu4vNMqSNstH4NIqyyzrxn5pOLr2PEsFXCTjMp4wfI8GCEnIhjJjQ7+LrChDt/6"><link rel="preload" href="/linksim/linksim-5e974ee226fdadbe_bg.wasm" crossorigin="anonymous" integrity="sha384-jBedXE/vnQmdWQdRra5AHsgRwsOonErxyVHc8kk9r190Q/p3EqHLx283J4zxZEyS" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"><link rel="modulepreload" href="/sim/linksim-6c30545d29319fd1.js" crossorigin="anonymous" integrity="sha384-PWZqLfn+Iam2uC+T54wIvi2mCInTkJRo89ALp0zSfSnGBnfNe5swlpvfNbWqOrBH"><link rel="preload" href="/sim/linksim-6c30545d29319fd1_bg.wasm" crossorigin="anonymous" integrity="sha384-+v7wJ4STcy5fWwt42sjjBdFl325IoslOpGKliVlHebIHUHWyy8MFxs2RHAwyAFQO" as="fetch" type="application/wasm"><link rel="modulepreload" href="/linksim-5e974ee226fdadbe.js" crossorigin="anonymous" integrity="sha384-dfu4vNMqSNstH4NIqyyzrxn5pOLr2PEsFXCTjMp4wfI8GCEnIhjJjQ7+LrChDt/6"><link rel="preload" href="/linksim-5e974ee226fdadbe_bg.wasm" crossorigin="anonymous" integrity="sha384-jBedXE/vnQmdWQdRra5AHsgRwsOonErxyVHc8kk9r190Q/p3EqHLx283J4zxZEyS" as="fetch" type="application/wasm"></head>
 <body>
 
 <script type="module">
@@ -33,8 +33,8 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
 <script type="module">
-import init, * as bindings from '/linksim/linksim-5e974ee226fdadbe.js';
-const wasm = await init({ module_or_path: '/linksim/linksim-5e974ee226fdadbe_bg.wasm' });
+import init, * as bindings from '/linksim-5e974ee226fdadbe.js';
+const wasm = await init({ module_or_path: '/linksim-5e974ee226fdadbe_bg.wasm' });
 
 
 window.wasmBindings = bindings;
