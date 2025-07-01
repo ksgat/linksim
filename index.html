@@ -4,43 +4,100 @@
     <meta charset="utf-8">
     <title>Bevy Four-Bar Linkage Sim</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { width: 100%; height: 100%; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #222;
+        }
+        canvas { 
+            width: 100%; 
+            height: 100%; 
+            display: none; 
+        }
+        
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        
+        .loading-text {
+            color: #ccc;
+            font-family: monospace;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #666;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
-<link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"><link rel="modulepreload" href="/sim/linksim-6c30545d29319fd1.js" crossorigin="anonymous" integrity="sha384-PWZqLfn+Iam2uC+T54wIvi2mCInTkJRo89ALp0zSfSnGBnfNe5swlpvfNbWqOrBH"><link rel="preload" href="/sim/linksim-6c30545d29319fd1_bg.wasm" crossorigin="anonymous" integrity="sha384-+v7wJ4STcy5fWwt42sjjBdFl325IoslOpGKliVlHebIHUHWyy8MFxs2RHAwyAFQO" as="fetch" type="application/wasm"><link rel="modulepreload" href="/linksim-5e974ee226fdadbe.js" crossorigin="anonymous" integrity="sha384-dfu4vNMqSNstH4NIqyyzrxn5pOLr2PEsFXCTjMp4wfI8GCEnIhjJjQ7+LrChDt/6"><link rel="preload" href="/linksim-5e974ee226fdadbe_bg.wasm" crossorigin="anonymous" integrity="sha384-jBedXE/vnQmdWQdRra5AHsgRwsOonErxyVHc8kk9r190Q/p3EqHLx283J4zxZEyS" as="fetch" type="application/wasm"></head>
+    <link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"><link rel="modulepreload" href="/sim/linksim-6c30545d29319fd1.js" crossorigin="anonymous" integrity="sha384-PWZqLfn+Iam2uC+T54wIvi2mCInTkJRo89ALp0zSfSnGBnfNe5swlpvfNbWqOrBH"><link rel="preload" href="/sim/linksim-6c30545d29319fd1_bg.wasm" crossorigin="anonymous" integrity="sha384-+v7wJ4STcy5fWwt42sjjBdFl325IoslOpGKliVlHebIHUHWyy8MFxs2RHAwyAFQO" as="fetch" type="application/wasm"><link rel="modulepreload" href="/linksim-5e974ee226fdadbe.js" crossorigin="anonymous" integrity="sha384-dfu4vNMqSNstH4NIqyyzrxn5pOLr2PEsFXCTjMp4wfI8GCEnIhjJjQ7+LrChDt/6"><link rel="preload" href="/linksim-5e974ee226fdadbe_bg.wasm" crossorigin="anonymous" integrity="sha384-jBedXE/vnQmdWQdRra5AHsgRwsOonErxyVHc8kk9r190Q/p3EqHLx283J4zxZEyS" as="fetch" type="application/wasm">
+</head>
 <body>
+    <div id="loading-screen">
+        <div class="loading-text" id="loading-text">loading ... .. .</div>
+        <div class="spinner"></div>
+    </div>
 
-<script type="module">
-import init, * as bindings from '/sim/linksim-772723654fb66e81.js';
-const wasm = await init({ module_or_path: '/sim/linksim-772723654fb66e81_bg.wasm' });
+    <canvas id="bevy-canvas"></canvas>
 
+    <script>
+        const loadingText = document.getElementById('loading-text');
+        const states = [
+            "loading .",
+            "loading ..",
+            "loading ...",
+        ];
+        let currentState = 0;
+        
+        const loadingInterval = setInterval(() => {
+            currentState = (currentState + 1) % states.length;
+            loadingText.textContent = states[currentState];
+        }, 300);
+        
+        window.addEventListener('TrunkApplicationStarted', () => {
+            clearInterval(loadingInterval);
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('bevy-canvas').style.display = 'block';
+        });
+    </script>
 
-window.wasmBindings = bindings;
-
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
-</script>
-<script type="module">
-import init, * as bindings from '/sim/linksim-6c30545d29319fd1.js';
-const wasm = await init({ module_or_path: '/sim/linksim-6c30545d29319fd1_bg.wasm' });
-
-
-window.wasmBindings = bindings;
-
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
-</script>
-<script type="module">
-import init, * as bindings from '/linksim-5e974ee226fdadbe.js';
-const wasm = await init({ module_or_path: '/linksim-5e974ee226fdadbe_bg.wasm' });
-
-
-window.wasmBindings = bindings;
-
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
-</script></body>
-</html> 
+    <script type="module">
+        import init, * as bindings from '/sim/linksim-772723654fb66e81.js';
+        const wasm = await init({ module_or_path: '/sim/linksim-772723654fb66e81_bg.wasm' });
+        window.wasmBindings = bindings;
+        dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+    </script>
+    <script type="module">
+        import init, * as bindings from '/sim/linksim-6c30545d29319fd1.js';
+        const wasm = await init({ module_or_path: '/sim/linksim-6c30545d29319fd1_bg.wasm' });
+        window.wasmBindings = bindings;
+        dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+    </script>
+    <script type="module">
+        import init, * as bindings from '/linksim-5e974ee226fdadbe.js';
+        const wasm = await init({ module_or_path: '/linksim-5e974ee226fdadbe_bg.wasm' });
+        window.wasmBindings = bindings;
+        dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+    </script>
+</body>
+</html>
