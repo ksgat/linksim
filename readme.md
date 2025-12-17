@@ -1,6 +1,8 @@
 # Ugoku!
 ![image](https://github.com/user-attachments/assets/f80459c9-fc30-4e08-8b0d-ae350a0d9bce)
 
+i use this to visualize movement, specifically i am building a niche esoteric cnc machine and i used this ONCE to model the movement needed in that gantry(probably the right word) other than that this is a oractice in systems devlopment and my first "real" project
+
 A position based dynamics (quasi)-kinematics simulator
 
 Ugoku is an experimental simulation tool for building and animating(soon) mechanical linkages. Largely inspired by OpenSCAD, but with movement in mind, it lets you define structures via scripts and simulate their motion using position-based dynamics.
