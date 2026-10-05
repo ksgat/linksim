@@ -1,46 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Bevy Four-Bar Linkage Sim</title>
-    <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { width: 100%; height: 100%; }
-    </style>
-<link rel="modulepreload" href="/sim/linksim-772723654fb66e81.js" crossorigin="anonymous" integrity="sha384-3i+DOMnhGzNyLfFyMQnyUm6BmmlAl14GhqNleqaTGentlL45DPsxRamZYhfBbUKG"><link rel="preload" href="/sim/linksim-772723654fb66e81_bg.wasm" crossorigin="anonymous" integrity="sha384-u+sMkDunWAE/7GMUQ6xGIhBv1AMQVd4YqknLfX54rML0ARNHzIi+bbThmTxuU2tz" as="fetch" type="application/wasm"><link rel="modulepreload" href="/sim/linksim-6c30545d29319fd1.js" crossorigin="anonymous" integrity="sha384-PWZqLfn+Iam2uC+T54wIvi2mCInTkJRo89ALp0zSfSnGBnfNe5swlpvfNbWqOrBH"><link rel="preload" href="/sim/linksim-6c30545d29319fd1_bg.wasm" crossorigin="anonymous" integrity="sha384-+v7wJ4STcy5fWwt42sjjBdFl325IoslOpGKliVlHebIHUHWyy8MFxs2RHAwyAFQO" as="fetch" type="application/wasm"><link rel="modulepreload" href="/linksim-5e974ee226fdadbe.js" crossorigin="anonymous" integrity="sha384-dfu4vNMqSNstH4NIqyyzrxn5pOLr2PEsFXCTjMp4wfI8GCEnIhjJjQ7+LrChDt/6"><link rel="preload" href="/linksim-5e974ee226fdadbe_bg.wasm" crossorigin="anonymous" integrity="sha384-jBedXE/vnQmdWQdRra5AHsgRwsOonErxyVHc8kk9r190Q/p3EqHLx283J4zxZEyS" as="fetch" type="application/wasm"></head>
-<body>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ugoku — Linkage Sim</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#1e1e1e] text-gray-200 font-mono h-screen flex items-center justify-center p-6">
 
-<script type="module">
-import init, * as bindings from '/sim/linksim-772723654fb66e81.js';
-const wasm = await init({ module_or_path: '/sim/linksim-772723654fb66e81_bg.wasm' });
+  <div class="text-center space-y-6 max-w-xl">
+    <h1 class="text-5xl font-bold">Ugoku</h1>
+    <p class="text-lg text-gray-400 leading-relaxed">
+      A minimalist, script-driven simulator for mechanical linkages.<br>
+      Inspired by OpenSCAD — powered by position-based dynamics.
+    </p>
 
+    <div class="flex justify-center space-x-4">
+      <a href="/sim/" class="inline-block w-40 text-center px-6 py-3 bg-[#3a3a3a] text-white hover:bg-[#4a4a4a] transition">
+        Launch Sim
+      </a>
+      <a href="/gettingstarted.html" class="inline-block w-40 text-center px-6 py-3 bg-[#3a3a3a] text-white hover:bg-[#4a4a4a] transition">
+        Get started
+      </a>
 
-window.wasmBindings = bindings;
-
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
-</script>
-<script type="module">
-import init, * as bindings from '/sim/linksim-6c30545d29319fd1.js';
-const wasm = await init({ module_or_path: '/sim/linksim-6c30545d29319fd1_bg.wasm' });
-
-
-window.wasmBindings = bindings;
+    </div>
 
 
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+    <div class="flex justify-center space-x-4">
+      <a href="https://github.com/ksgat/linksim" class="inline-block w-40 text-center px-6 py-3 bg-[#3a3a3a] text-white hover:bg-[#4a4a4a] transition">
+      Source
+      </a>
+      <a href="/docs.html" class="inline-block w-40 text-center px-6 py-3 bg-[#3a3a3a] text-white hover:bg-[#4a4a4a] transition">
+        Read Docs
+      </a>
+    </div>
 
-</script>
-<script type="module">
-import init, * as bindings from '/linksim-5e974ee226fdadbe.js';
-const wasm = await init({ module_or_path: '/linksim-5e974ee226fdadbe_bg.wasm' });
 
 
-window.wasmBindings = bindings;
+  </div>
 
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
-</script></body>
-</html> 
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ugoku! Docs</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background-color: #0f0f0f;
+      color: #d4d4d4;
+      font-family: system-ui, sans-serif;
+      line-height: 1.6;
+      display: flex;
+    }
+    aside {
+      width: 250px;
+      padding: 1.5rem;
+      border-right: 1px solid #2e3440;
+      overflow-y: auto;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      background-color: #121212;
+      flex-shrink: 0;
+    }
+    aside h2 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      color: #eceff4;
+    }
+    aside a {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #88c0d0;
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s ease;
+    }
+    aside a:hover { color: #81a1c1; }
+    aside a.active {
+      color: #eceff4;
+      font-weight: 600;
+    }
+    main {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      border-bottom: 2px solid #2e3440;
+      padding-bottom: 0.5rem;
+      margin-top: 1rem;
+      margin-bottom: 1.5rem;
+      scroll-margin-top: 2rem;
+    }
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      border-bottom: 1px solid #2e3440;
+      padding-bottom: 0.3rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      scroll-margin-top: 2rem;
+    }
+    h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      scroll-margin-top: 2rem;
+    }
+    h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      scroll-margin-top: 2rem;
+    }
+    p, li {
+      margin-bottom: 1.25rem;
+      color: #cfd4dc;
+    }
+    a {
+      color: #88c0d0;
+      text-decoration: underline;
+    }
+    a:hover { color: #81a1c1; text-decoration: none; }
+    pre {
+      background: #1e1e1e;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      font-family: 'Fira Mono', monospace;
+    }
+    code {
+      background: #2e3440;
+      padding: 0.25em 0.5em;
+      font-family: 'Fira Mono', monospace;
+      font-size: 0.95rem;
+      border-radius: 4px;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+    }
+    hr {
+      border: none;
+      height: 1px;
+      background-color: #2e3440;
+      margin: 3rem 0;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 1.5rem 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h2>On this page</h2>
+    <nav id="sidebar"></nav>
+  </aside>
+
+  <main>
+    <div id="content">Loading docs...</div>
+  </main>
+
+  <script>
+    fetch('docs.md')
+      .then(res => res.text())
+      .then(md => {
+        document.getElementById('content').innerHTML = marked.parse(md);
+        Prism.highlightAll();
+        generateSidebar();
+        updateActiveLink();
+      });
+
+    function generateSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const headings = document.querySelectorAll('#content h1, #content h2, #content h3, #content h4');
+      sidebar.innerHTML = '';
+
+      headings.forEach(h => {
+        const id = h.textContent.toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^\w\-]+/g, '');
+
+        h.id = id;
+
+        const link = document.createElement('a');
+        link.href = `#${id}`;
+        link.textContent = h.textContent;
+
+        if (h.tagName === 'H2') link.style.marginLeft = '0.5rem';
+        if (h.tagName === 'H3') link.style.marginLeft = '1rem';
+        if (h.tagName === 'H4') link.style.marginLeft = '1.5rem';
+
+        sidebar.appendChild(link);
+      });
+    }
+
+    function updateActiveLink() {
+      const headings = document.querySelectorAll('#content h1, #content h2, #content h3, #content h4');
+      const sidebarLinks = document.querySelectorAll('#sidebar a');
+
+      let current = '';
+      headings.forEach(heading => {
+        const rect = heading.getBoundingClientRect();
+        if (rect.top <= 100) current = heading.id;
+      });
+
+      sidebarLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+  </script>
+</body>
+</html>

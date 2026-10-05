@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ugoku — Get started</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+
+  <style>
+    body {
+    display: flex;
+    margin: 0;
+    background-color: #0f0f0f;
+    color: #d4d4d4;
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+    }
+    
+
+    main {
+    margin-left: 250px;
+    padding: 2rem;
+    }
+
+    img {
+    max-width: 400px;
+    height: auto;
+    display: block;
+    margin: 1.5rem 0;
+    border-radius: 4px;
+    }
+        h1 {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* sans for headings */
+        font-size: 3rem; /* smaller, less dominating */
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        border-bottom: 2px solid #2e3440;
+        padding-bottom: 0.25rem;
+        }
+
+        h2 {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 1.75rem;
+        font-weight: 600;
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #2e3440;
+        padding-bottom: 0.25rem;
+        }
+
+        h3 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        }
+
+        p {
+        margin-bottom: 1.25rem;
+        color: #cfd4dc; /* softer gray for body text */
+        }
+
+        a {
+        color: #88c0d0;
+        text-decoration: underline;
+        }
+
+        a:hover {
+        color: #81a1c1;
+        text-decoration: none;
+        }
+
+        pre {
+        background: #1e1e1e;
+        padding: 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        margin: 2rem 0;
+        line-height: 1.4;
+        font-family: 'Fira Mono', monospace, monospace;
+        }
+
+        code {
+        background: #2e3440;
+        padding: 0.25em 0.5em;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        font-family: 'Fira Mono', monospace;
+        }
+
+        hr {
+        border: none;
+        height: 1px;
+        background-color: #2e3440;
+        margin: 3rem 0;
+        }
+        aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 250px;
+        height: 100vh;
+        padding: 1.5rem;
+        background-color: #121212;
+        border-right: 1px solid #2e3440;
+        overflow-y: auto;
+        box-sizing: border-box;
+        z-index: 1000;
+        }
+        aside h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #eceff4;
+        margin-bottom: 1rem;
+        }
+
+        aside a {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #88c0d0;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.2s ease;
+        }
+
+        aside a:hover {
+        color: #81a1c1;
+        }
+
+        /* Smooth scrolling for anchor links */
+        html {
+        scroll-behavior: smooth;
+        }
+
+        /* Active link styling */
+        aside a.active {
+        color: #eceff4;
+        font-weight: 600;
+        }
+
+
+  </style>
+</head>
+<body>
+  <aside>
+    <h2>On this page</h2>
+    <nav id="sidebar"></nav>
+  </aside>
+
+  <main>
+    <h1>Getting started with Ugoku</h1>
+    <h2>What is Ugoku?</h2>
+    <p>Ugoku is a simulation tool that lets you model mechanical linkages via a scripting language. Initially the goal was OpenSCAD, but with movement. Rather than static 3d models, its defining a system more or less.</p>
+    <h2>How to access Ugoku?</h2>
+    <h3>Web</h3>
+    <p>The simulator is live at <a href="/sim/">ugoku.netlify.app/sim/</a>
+    The main page (which is likely where you found this guide) is available at <a href="/">ugoku.netlify.app</a></p>
+    <h3>Native</h3>
+    <p>If you feel so inclined, building from source is an option, although the codebase is not very optimized, it will run just fine natively, and that will enable you to bring your own editor + also the benefit of not having to rely on web services.</p>
+    <h2>The Ugoku Modelling Model</h2>
+    <p>Ugoku&#39;s model for modelling has three main parts within an overarching simulation:</p>
+    <h3>1 - Joints</h3>
+    <p>Every simulation or mechanism built in Ugoku will contain this fundamental building block:  Joints. It is safe to say that any purely mechanical system can be represented by a large set of points and the relationships between them.</p>
+    <p>In Ugoku, you can define joints under this grammar:</p>
+    <pre><code>joint identifier(number, number)
+ joint identifier(number, number, number)</code></pre>
+    <b>example</b>
+    <br>
+     <code>joint a(0,2,0) 
+    </code>
+    <p>And in 3d:</p>
+    <code>joint b(0,0,2)
+    </code>
+    <h3>2 - Links</h3>
+    <p>While joints serve as the points of connection, links serve as <em>the</em> connections. The links are the bones of the mechanical system.</p>
+    <p>You can define links with this grammar</p>
+ <code>link identifier(joint name, joint name)
+    </code>
+    <p>A link can only be between two joints, but there is no limit to the amount of links a joint can be connected to.</p>
+    <h4>Note</h4>
+    <p>Most constraints are between joints, and it is quite rare for a constraint to mess with links at all. Links are almost entirely visual representations of the relationships. Constraints <strong>should</strong> be the relationship between joints, and NOT links.</p>
+    <h3>3 - Constraints</h3>
+    <p>Constraints are the rules of the mechanism, they should always be applied to joints, as joints are the connections, there are various constraints and the syntax + usage is available on the <a href="/docs.html">docs</a></p>
+    <h1>Your First Simulation</h1>
+    <p>To get started modelling with Ugoku, we will construct a fourbar linkage, constructing this linkage will require us to:</p>
+    <ul>
+    <li>Define a simulation container</li>
+    <li>Define four points</li>
+    <li>Define four links</li>
+    <li>Constraint distance between these four points</li>
+    <li>Constraint two of them into a fixed position</li>
+    <li>And optionally constrain them to a plane, and also restrict angular movement</li>
+    </ul>
+    <h2>Step 0</h2>
+    <p>Visit the simulator at <a href="/sim/">ugoku.netlify.app/sim/</a>, and then navigate to the text input labeled &quot;Ugoku!&quot;
+    There is where all editing will be done, and that is where you can input your code.</p>
+    <h2>Step 1 - Define your sim container</h2>
+    <p>This container will hold the contents of your simulation</p>
+    <code>sim fourbar{ ... }</code>
+    <h2>Step 2 - define joints</h2>
+    <p>A fourbar linkage is a square, so we need four points in order to define the basis of the four bar</p>
+    <pre><code>sim fourbar{  
+        joint a(0,0)
+        joint b(0,2)
+        joint c(2,2)
+        joint d(2,0) 
+    }</code></pre>
+    <p>When compiled it will look like this:<img src="" alt="" title="Pasted image 20250701105821.png"></p>
+    <h2>Step 3 - define links</h2>
+    <p>Before doing this step, it is important to state that due to the nature of constraints being applied to joints and links, links serve as a mostly visual guide. Regardless, you should use them.</p>
+    <p>The links are as such:</p>
+    <pre><code>sim fourbar{
+    joint a(0,0)
+    joint b(0,2)
+    joint c(2,2)
+    joint d(2,0)
+    
+    link ab(a,b)
+    link bc(b,c)
+    link cd(c,d)
+    link da(d,a)
+    }</code></pre>
+    <p>There is no limit to how many links a joint can be connected to.</p>
+    <p>After this your simulation will like this:</p>
+    <img src="Pasted image 20250701105821.png" alt="basic linkage setup">
+    <h2>Step 4 - constraints</h2>
+    <p>Constraints tell the joints <em>what</em> to do, if you want a distance between them we use the distance constraint, if we want to project the points and fix them onto a plane we use the plane constraint.</p>
+    <p>Right now the fourbar is just a bunch of point you can move, freely, with no structure.
+    In order to change this and make it have a rigid form, we will apply a distance constraint of two to each linkage, we can do this like so</p>
+    <pre><code>distance(a,b,2)
+ distance(b,c,2)
+ distance(c,d,2)
+ distance(d,a,2)</code></pre>
+    <p>Okay but now that these have distance set apart, they still are free to move in 3d space</p>
+    <img src="ezgif-743c755ea17827.gif" alt="partially constrained">
+    <p>We can fix this by fixing 2 of the points</p>
+    <code>fixed(a,d)
+    </code>
+    <p>The joints were not declare counter clockwise, so <code>joint d</code> would be the one appropriate to fix.</p>
+    <p>One issue now is that the points are not restricted to a plane, which if you want to leave them as such, fine, but ideally they are restricted to a plane.</p>
+    <img src="ezgif-766c497aa5575a.gif" alt="partially constrained with fixed points">
+    <p>The fix for this is to apply a plane constraint, for plane constraints you can apply multiply points at once like so</p>
+    <code>plane((a,b,c,d) Z)</code>
+    <p>Now, after fully constraining your sim, it should look like this:</p>
+    <img src="ezgif-764d185e386b68.gif" alt="Completed fourbar">
+    <p>And the code:</p>
+    <pre><code>sim fourbar{
+        joint a(0,0)
+        joint b(0,2)
+        joint c(2,2)
+        joint d(2,0)
+    
+        link ab(a,b)
+        link bc(b,c)
+        link cd(c,d)
+        link da(d,a)
+    
+        distance(a,b,2)
+        distance(b,c,2)
+        distance(c,d,2)
+        distance(d,a,2)
+    
+        fixed(a,d)
+        
+        plane((a,b,c,d), Z)
+    } </code></pre>
+    
+      </main>
+
+  <script>
+    function generateSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.innerHTML = ''; 
+
+      const headings = document.querySelectorAll('main h1, main h2, main h3, main h4');
+      
+      headings.forEach(h => {
+        const id = h.textContent.toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^\w\-]+/g, '');
+        h.id = id;
+
+        const link = document.createElement('a');
+        link.href = `#${id}`;
+        link.textContent = h.textContent;
+
+        if (h.tagName === 'H2') link.style.marginLeft = '0.5rem';
+        if (h.tagName === 'H3') link.style.marginLeft = '1rem';
+        if (h.tagName === 'H4') link.style.marginLeft = '1.5rem';
+
+        sidebar.appendChild(link);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', generateSidebar);
+
+    function updateActiveLink() {
+      const headings = document.querySelectorAll('main h1, main h2, main h3, main h4');
+      const sidebarLinks = document.querySelectorAll('#sidebar a');
+      
+      let current = '';
+      headings.forEach(heading => {
+        const rect = heading.getBoundingClientRect();
+        if (rect.top <= 100) {
+          current = heading.id;
+        }
+      });
+
+      sidebarLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+  </script>
+  
+</body>
+</html>
